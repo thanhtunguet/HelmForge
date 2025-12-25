@@ -63,6 +63,7 @@ export function IngressesTab({ template }: IngressesTabProps) {
     tlsEnabled: false,
     tlsSecretName: '',
     rules: [] as IngressRule[],
+    useAllRoutes: false,
   });
 
   const [ruleForm, setRuleForm] = useState({ 
@@ -70,6 +71,14 @@ export function IngressesTab({ template }: IngressesTabProps) {
     selectedRoute: '', 
     customPath: '' 
   });
+
+  // Compute all routes from all services
+  const allRoutes: IngressRule[] = template.services.flatMap(service =>
+    service.routes.map(route => ({
+      path: route.path,
+      serviceName: service.name,
+    }))
+  );
 
   const openNew = () => {
     setEditingIngress(null);
@@ -80,12 +89,20 @@ export function IngressesTab({ template }: IngressesTabProps) {
       tlsEnabled: false,
       tlsSecretName: '',
       rules: [],
+      useAllRoutes: false,
     });
     setDialogOpen(true);
   };
 
   const openEdit = (ingress: Ingress) => {
     setEditingIngress(ingress);
+    // Check if current rules match all routes to set useAllRoutes toggle
+    const allRoutesSet = new Set(allRoutes.map(r => `${r.path}:${r.serviceName}`));
+    const currentRulesSet = new Set(ingress.rules.map(r => `${r.path}:${r.serviceName}`));
+    const isUsingAllRoutes = allRoutes.length > 0 && 
+      allRoutes.every(r => currentRulesSet.has(`${r.path}:${r.serviceName}`)) &&
+      ingress.rules.length === allRoutes.length;
+
     setFormData({
       name: ingress.name,
       mode: ingress.mode,
@@ -93,8 +110,25 @@ export function IngressesTab({ template }: IngressesTabProps) {
       tlsEnabled: ingress.tlsEnabled,
       tlsSecretName: ingress.tlsSecretName || '',
       rules: [...ingress.rules],
+      useAllRoutes: isUsingAllRoutes,
     });
     setDialogOpen(true);
+  };
+
+  const handleUseAllRoutesChange = (checked: boolean) => {
+    if (checked) {
+      setFormData({
+        ...formData,
+        useAllRoutes: true,
+        rules: [...allRoutes],
+      });
+    } else {
+      setFormData({
+        ...formData,
+        useAllRoutes: false,
+        rules: [],
+      });
+    }
   };
 
   const selectedService = template.services.find(s => s.name === ruleForm.serviceName);
@@ -138,14 +172,16 @@ export function IngressesTab({ template }: IngressesTabProps) {
       return;
     }
 
+    const { useAllRoutes, ...ingressData } = formData;
+
     if (editingIngress) {
-      updateIngress(editingIngress.id, formData);
+      updateIngress(editingIngress.id, ingressData);
       toast.success('Ingress updated');
     } else {
       const ingress: Ingress = {
         id: crypto.randomUUID(),
         templateId: template.id,
-        ...formData,
+        ...ingressData,
       };
       addIngress(ingress);
       toast.success('Ingress added');
@@ -365,80 +401,111 @@ export function IngressesTab({ template }: IngressesTabProps) {
             </div>
 
             <div className="space-y-3">
-              <Label>Routing Rules</Label>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <Select
-                    value={ruleForm.serviceName}
-                    onValueChange={(value) =>
-                      setRuleForm({ ...ruleForm, serviceName: value, selectedRoute: '', customPath: '' })
-                    }
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Select Service" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {template.services.map((svc) => (
-                        <SelectItem key={svc.id} value={svc.name}>
-                          {svc.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={ruleForm.selectedRoute}
-                    onValueChange={(value) =>
-                      setRuleForm({ ...ruleForm, selectedRoute: value, customPath: '' })
-                    }
-                    disabled={!ruleForm.serviceName}
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select Route" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedService?.routes.map((route, idx) => (
-                        <SelectItem key={idx} value={route.path}>
-                          {route.path}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="__custom__">Custom Route...</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="secondary" onClick={addRule} disabled={!ruleForm.serviceName}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                {isCustomRoute && (
-                  <Input
-                    placeholder="/custom-path"
-                    value={ruleForm.customPath}
-                    onChange={(e) => setRuleForm({ ...ruleForm, customPath: e.target.value })}
-                    className="font-mono"
+              <div className="flex items-center justify-between">
+                <Label>Routing Rules</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="useAllRoutes" className="text-sm font-normal text-muted-foreground">
+                    Use all routes
+                  </Label>
+                  <Switch
+                    id="useAllRoutes"
+                    checked={formData.useAllRoutes}
+                    onCheckedChange={handleUseAllRoutesChange}
+                    disabled={allRoutes.length === 0}
                   />
-                )}
+                </div>
               </div>
-              {formData.rules.length > 0 && (
-                <div className="space-y-2">
-                  {formData.rules.map((rule, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2"
-                    >
-                      <span className="font-mono text-sm">
+              
+              {formData.useAllRoutes ? (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    All {allRoutes.length} route(s) from all services will be included:
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {allRoutes.map((rule, i) => (
+                      <Badge key={i} variant="secondary" className="font-mono text-xs">
                         {rule.path} → {rule.serviceName}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => removeRule(i)}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Select
+                        value={ruleForm.serviceName}
+                        onValueChange={(value) =>
+                          setRuleForm({ ...ruleForm, serviceName: value, selectedRoute: '', customPath: '' })
+                        }
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <SelectTrigger className="w-48">
+                          <SelectValue placeholder="Select Service" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {template.services.map((svc) => (
+                            <SelectItem key={svc.id} value={svc.name}>
+                              {svc.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={ruleForm.selectedRoute}
+                        onValueChange={(value) =>
+                          setRuleForm({ ...ruleForm, selectedRoute: value, customPath: '' })
+                        }
+                        disabled={!ruleForm.serviceName}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select Route" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedService?.routes.map((route, idx) => (
+                            <SelectItem key={idx} value={route.path}>
+                              {route.path}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="__custom__">Custom Route...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="secondary" onClick={addRule} disabled={!ruleForm.serviceName}>
+                        <Plus className="h-4 w-4" />
                       </Button>
                     </div>
-                  ))}
-                </div>
+                    {isCustomRoute && (
+                      <Input
+                        placeholder="/custom-path"
+                        value={ruleForm.customPath}
+                        onChange={(e) => setRuleForm({ ...ruleForm, customPath: e.target.value })}
+                        className="font-mono"
+                      />
+                    )}
+                  </div>
+                  {formData.rules.length > 0 && (
+                    <div className="space-y-2">
+                      {formData.rules.map((rule, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2"
+                        >
+                          <span className="font-mono text-sm">
+                            {rule.path} → {rule.serviceName}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => removeRule(i)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
