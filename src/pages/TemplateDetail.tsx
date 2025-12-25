@@ -15,12 +15,14 @@ import {
   Settings,
   Trash2,
   Download,
+  FileCode,
 } from 'lucide-react';
 import { ServicesTab } from '@/components/template/ServicesTab';
 import { ConfigMapsTab } from '@/components/template/ConfigMapsTab';
 import { SecretsTab } from '@/components/template/SecretsTab';
 import { IngressesTab } from '@/components/template/IngressesTab';
 import { VersionsTab } from '@/components/template/VersionsTab';
+import { NginxConfigTab } from '@/components/template/NginxConfigTab';
 import { TemplateSettingsDialog } from '@/components/template/TemplateSettingsDialog';
 import {
   AlertDialog,
@@ -34,18 +36,34 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { TemplateWithRelations } from '@/types/helm';
 
 export default function TemplateDetail() {
   const { templateId } = useParams();
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
   
-  const getTemplateWithRelations = useHelmStore(
-    (state) => state.getTemplateWithRelations
-  );
+  // Use selectors that track actual data changes
+  const templates = useHelmStore((state) => state.templates);
+  const services = useHelmStore((state) => state.services);
+  const configMaps = useHelmStore((state) => state.configMaps);
+  const tlsSecrets = useHelmStore((state) => state.tlsSecrets);
+  const ingresses = useHelmStore((state) => state.ingresses);
+  const chartVersions = useHelmStore((state) => state.chartVersions);
   const deleteTemplate = useHelmStore((state) => state.deleteTemplate);
   
-  const template = templateId ? getTemplateWithRelations(templateId) : undefined;
+  // Build template with relations from tracked data
+  const baseTemplate = templates.find((t) => t.id === templateId);
+  const template: TemplateWithRelations | undefined = baseTemplate
+    ? {
+        ...baseTemplate,
+        services: services.filter((s) => s.templateId === templateId),
+        configMaps: configMaps.filter((c) => c.templateId === templateId),
+        tlsSecrets: tlsSecrets.filter((s) => s.templateId === templateId),
+        ingresses: ingresses.filter((i) => i.templateId === templateId),
+        versions: chartVersions.filter((v) => v.templateId === templateId),
+      }
+    : undefined;
 
   if (!template) {
     return (
@@ -190,6 +208,12 @@ export default function TemplateDetail() {
                 {template.versions.length}
               </Badge>
             </TabsTrigger>
+            {template.enableNginxGateway && (
+              <TabsTrigger value="nginx" className="gap-2">
+                <FileCode className="h-4 w-4" />
+                Nginx Config
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="services">
@@ -207,6 +231,11 @@ export default function TemplateDetail() {
           <TabsContent value="versions">
             <VersionsTab template={template} />
           </TabsContent>
+          {template.enableNginxGateway && (
+            <TabsContent value="nginx">
+              <NginxConfigTab template={template} />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
       

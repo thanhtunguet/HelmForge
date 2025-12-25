@@ -5,8 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Route as RouteIcon, Variable, Heart, Activity, X, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ServicesTabProps {
@@ -96,7 +104,6 @@ export function ServicesTab({ template }: ServicesTabProps) {
     setDialogOpen(true);
   };
 
-  // Route management
   const addRoute = () => {
     setFormData(prev => ({
       ...prev,
@@ -120,7 +127,6 @@ export function ServicesTab({ template }: ServicesTabProps) {
     }));
   };
 
-  // Environment variable management
   const addEnvVar = () => {
     setFormData(prev => ({
       ...prev,
@@ -144,7 +150,6 @@ export function ServicesTab({ template }: ServicesTabProps) {
     }));
   };
 
-  // ConfigMap env source management
   const addConfigMapEnvSource = () => {
     setFormData(prev => ({
       ...prev,
@@ -242,88 +247,79 @@ export function ServicesTab({ template }: ServicesTabProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {template.services.map((service) => (
-            <Card key={service.id} className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base font-mono">
-                      {service.name}
-                    </CardTitle>
-                    <CardDescription className="mt-1 text-xs font-mono text-muted-foreground">
-                      {template.registryUrl}/{template.registryProject}/{service.name}:tag
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEdit(service)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => setDeleteId(service.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <RouteIcon className="h-4 w-4 text-primary" />
-                  <span className="text-muted-foreground">Routes:</span>
-                  <div className="flex flex-wrap gap-1">
-                    {service.routes.length > 0 ? (
-                      service.routes.map((r, i) => (
-                        <Badge key={i} variant="secondary" className="font-mono text-xs">
-                          {r.path}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-xs text-muted-foreground">None</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Variable className="h-4 w-4 text-accent" />
-                  <span className="text-muted-foreground">Env vars:</span>
-                  <span className="text-xs">{service.envVars.length}</span>
-                </div>
-                {service.configMapEnvSources && service.configMapEnvSources.length > 0 && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <FileText className="h-4 w-4 text-warning" />
-                    <span className="text-muted-foreground">ConfigMap envs:</span>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Image</TableHead>
+                <TableHead>Routes</TableHead>
+                <TableHead>Env Vars</TableHead>
+                <TableHead>Health Check</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {template.services.map((service) => (
+                <TableRow key={service.id}>
+                  <TableCell className="font-mono font-medium">{service.name}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground font-mono">
+                    {template.registryUrl}/{template.registryProject}/{service.name}:tag
+                  </TableCell>
+                  <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {service.configMapEnvSources.map((c, i) => (
-                        <Badge key={i} variant="outline" className="font-mono text-xs">
-                          {c.configMapName}
+                      {service.routes.length > 0 ? (
+                        service.routes.slice(0, 3).map((r, i) => (
+                          <Badge key={i} variant="secondary" className="font-mono text-xs">
+                            {r.path}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">None</span>
+                      )}
+                      {service.routes.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{service.routes.length - 3}
                         </Badge>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                )}
-                {(service.healthCheckEnabled ?? true) && (
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Heart className="h-3 w-3 text-success" />
-                      {service.livenessPath}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {service.envVars.length}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {(service.healthCheckEnabled ?? true) ? (
+                      <Check className="h-4 w-4 text-success" />
+                    ) : (
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEdit(service)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => setDeleteId(service.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Activity className="h-3 w-3 text-primary" />
-                      {service.readinessPath}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -339,16 +335,13 @@ export function ServicesTab({ template }: ServicesTabProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
-            {/* Service Name */}
             <div className="space-y-2">
               <Label htmlFor="name">Service Name *</Label>
               <Input
                 id="name"
                 placeholder="api-gateway"
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="font-mono"
               />
               <p className="text-xs text-muted-foreground">
@@ -356,7 +349,6 @@ export function ServicesTab({ template }: ServicesTabProps) {
               </p>
             </div>
 
-            {/* Routes */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Routes</Label>
@@ -392,7 +384,6 @@ export function ServicesTab({ template }: ServicesTabProps) {
               )}
             </div>
 
-            {/* Environment Variables */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Environment Variables</Label>
@@ -428,7 +419,6 @@ export function ServicesTab({ template }: ServicesTabProps) {
               )}
             </div>
 
-            {/* ConfigMap as Environment Sources */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -478,7 +468,6 @@ export function ServicesTab({ template }: ServicesTabProps) {
               )}
             </div>
 
-            {/* Health Check Toggle */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -494,9 +483,8 @@ export function ServicesTab({ template }: ServicesTabProps) {
                   }
                 />
               </div>
-
               {formData.healthCheckEnabled && (
-                <div className="grid gap-4 sm:grid-cols-2 pl-4 border-l-2 border-muted">
+                <div className="grid gap-4 sm:grid-cols-2 pl-4 border-l-2 border-primary/20">
                   <div className="space-y-2">
                     <Label htmlFor="livenessPath">Liveness Path</Label>
                     <Input
