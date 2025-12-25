@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useHelmStore } from '@/lib/store';
-import { TemplateWithRelations, ConfigMap } from '@/types/helm';
+import { TemplateWithRelations, ConfigMap, ConfigMapKey } from '@/types/helm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ConfigMapsTabProps {
@@ -50,12 +50,12 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
 
   const [formData, setFormData] = useState({
     name: '',
-    keys: '',
+    keys: [] as ConfigMapKey[],
   });
 
   const openNew = () => {
     setEditingConfigMap(null);
-    setFormData({ name: '', keys: '' });
+    setFormData({ name: '', keys: [] });
     setDialogOpen(true);
   };
 
@@ -63,9 +63,30 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
     setEditingConfigMap(configMap);
     setFormData({
       name: configMap.name,
-      keys: configMap.keys.map((k) => k.name).join(', '),
+      keys: [...configMap.keys],
     });
     setDialogOpen(true);
+  };
+
+  const addKey = () => {
+    setFormData(prev => ({
+      ...prev,
+      keys: [...prev.keys, { name: '' }]
+    }));
+  };
+
+  const updateKey = (index: number, name: string) => {
+    setFormData(prev => ({
+      ...prev,
+      keys: prev.keys.map((k, i) => i === index ? { ...k, name } : k)
+    }));
+  };
+
+  const removeKey = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      keys: prev.keys.filter((_, i) => i !== index)
+    }));
   };
 
   const handleSubmit = () => {
@@ -74,11 +95,7 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
       return;
     }
 
-    const keys = formData.keys
-      .split(',')
-      .map((k) => k.trim())
-      .filter(Boolean)
-      .map((name) => ({ name }));
+    const keys = formData.keys.filter(k => k.name.trim());
 
     if (editingConfigMap) {
       updateConfigMap(editingConfigMap.id, { name: formData.name, keys });
@@ -213,17 +230,39 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
                 className="font-mono"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="keys">Keys (comma-separated)</Label>
-              <Input
-                id="keys"
-                placeholder="config.yaml, settings.json, env"
-                value={formData.keys}
-                onChange={(e) =>
-                  setFormData({ ...formData, keys: e.target.value })
-                }
-                className="font-mono"
-              />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Keys</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addKey}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Key
+                </Button>
+              </div>
+              {formData.keys.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No keys defined</p>
+              ) : (
+                <div className="space-y-2">
+                  {formData.keys.map((key, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        placeholder="config.yaml"
+                        value={key.name}
+                        onChange={(e) => updateKey(index, e.target.value)}
+                        className="font-mono"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive shrink-0"
+                        onClick={() => removeKey(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 Values will be assigned when creating chart versions
               </p>

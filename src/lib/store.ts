@@ -5,6 +5,7 @@ import {
   Service,
   ConfigMap,
   TLSSecret,
+  OpaqueSecret,
   Ingress,
   ChartVersion,
   TemplateWithRelations,
@@ -15,6 +16,7 @@ interface HelmStore {
   services: Service[];
   configMaps: ConfigMap[];
   tlsSecrets: TLSSecret[];
+  opaqueSecrets: OpaqueSecret[];
   ingresses: Ingress[];
   chartVersions: ChartVersion[];
   
@@ -39,6 +41,11 @@ interface HelmStore {
   updateTLSSecret: (id: string, secret: Partial<TLSSecret>) => void;
   deleteTLSSecret: (id: string) => void;
   
+  // Opaque Secret actions
+  addOpaqueSecret: (secret: OpaqueSecret) => void;
+  updateOpaqueSecret: (id: string, secret: Partial<OpaqueSecret>) => void;
+  deleteOpaqueSecret: (id: string) => void;
+  
   // Ingress actions
   addIngress: (ingress: Ingress) => void;
   updateIngress: (id: string, ingress: Partial<Ingress>) => void;
@@ -56,6 +63,7 @@ export const useHelmStore = create<HelmStore>()(
       services: [],
       configMaps: [],
       tlsSecrets: [],
+      opaqueSecrets: [],
       ingresses: [],
       chartVersions: [],
       
@@ -75,6 +83,7 @@ export const useHelmStore = create<HelmStore>()(
           services: state.services.filter((s) => s.templateId !== id),
           configMaps: state.configMaps.filter((c) => c.templateId !== id),
           tlsSecrets: state.tlsSecrets.filter((s) => s.templateId !== id),
+          opaqueSecrets: state.opaqueSecrets.filter((s) => s.templateId !== id),
           ingresses: state.ingresses.filter((i) => i.templateId !== id),
           chartVersions: state.chartVersions.filter((v) => v.templateId !== id),
         })),
@@ -89,6 +98,7 @@ export const useHelmStore = create<HelmStore>()(
           services: state.services.filter((s) => s.templateId === id),
           configMaps: state.configMaps.filter((c) => c.templateId === id),
           tlsSecrets: state.tlsSecrets.filter((s) => s.templateId === id),
+          opaqueSecrets: state.opaqueSecrets.filter((s) => s.templateId === id),
           ingresses: state.ingresses.filter((i) => i.templateId === id),
           versions: state.chartVersions.filter((v) => v.templateId === id),
         };
@@ -137,6 +147,21 @@ export const useHelmStore = create<HelmStore>()(
       deleteTLSSecret: (id) =>
         set((state) => ({
           tlsSecrets: state.tlsSecrets.filter((s) => s.id !== id),
+        })),
+      
+      addOpaqueSecret: (secret) =>
+        set((state) => ({ opaqueSecrets: [...state.opaqueSecrets, secret] })),
+      
+      updateOpaqueSecret: (id, updates) =>
+        set((state) => ({
+          opaqueSecrets: state.opaqueSecrets.map((s) =>
+            s.id === id ? { ...s, ...updates } : s
+          ),
+        })),
+      
+      deleteOpaqueSecret: (id) =>
+        set((state) => ({
+          opaqueSecrets: state.opaqueSecrets.filter((s) => s.id !== id),
         })),
       
       addIngress: (ingress) =>

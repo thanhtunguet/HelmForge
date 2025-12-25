@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useHelmStore } from '@/lib/store';
-import { TemplateWithRelations, TLSSecret } from '@/types/helm';
+import { TemplateWithRelations, TLSSecret, OpaqueSecret, OpaqueSecretKey } from '@/types/helm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Trash2, Key, Lock, Pencil, Check, X } from 'lucide-react';
+import { Plus, Trash2, Key, Lock, Pencil, Check, X, FileKey } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SecretsTabProps {
@@ -41,72 +41,151 @@ interface SecretsTabProps {
 }
 
 export function SecretsTab({ template }: SecretsTabProps) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [editingSecret, setEditingSecret] = useState<TLSSecret | null>(null);
+  // TLS Secret state
+  const [tlsDialogOpen, setTlsDialogOpen] = useState(false);
+  const [deleteTlsId, setDeleteTlsId] = useState<string | null>(null);
+  const [editingTlsSecret, setEditingTlsSecret] = useState<TLSSecret | null>(null);
+  const [tlsFormData, setTlsFormData] = useState({ name: '', cert: '', key: '' });
+
+  // Opaque Secret state
+  const [opaqueDialogOpen, setOpaqueDialogOpen] = useState(false);
+  const [deleteOpaqueId, setDeleteOpaqueId] = useState<string | null>(null);
+  const [editingOpaqueSecret, setEditingOpaqueSecret] = useState<OpaqueSecret | null>(null);
+  const [opaqueFormData, setOpaqueFormData] = useState({ name: '', keys: [] as OpaqueSecretKey[] });
   
   const addTLSSecret = useHelmStore((state) => state.addTLSSecret);
   const updateTLSSecret = useHelmStore((state) => state.updateTLSSecret);
   const deleteTLSSecret = useHelmStore((state) => state.deleteTLSSecret);
 
-  const [formData, setFormData] = useState({ 
-    name: '',
-    cert: '',
-    key: ''
-  });
+  const addOpaqueSecret = useHelmStore((state) => state.addOpaqueSecret);
+  const updateOpaqueSecret = useHelmStore((state) => state.updateOpaqueSecret);
+  const deleteOpaqueSecret = useHelmStore((state) => state.deleteOpaqueSecret);
 
-  const openNew = () => {
-    setEditingSecret(null);
-    setFormData({ name: '', cert: '', key: '' });
-    setDialogOpen(true);
+  // TLS Secret handlers
+  const openNewTls = () => {
+    setEditingTlsSecret(null);
+    setTlsFormData({ name: '', cert: '', key: '' });
+    setTlsDialogOpen(true);
   };
 
-  const openEdit = (secret: TLSSecret) => {
-    setEditingSecret(secret);
-    setFormData({
+  const openEditTls = (secret: TLSSecret) => {
+    setEditingTlsSecret(secret);
+    setTlsFormData({
       name: secret.name,
       cert: secret.cert || '',
       key: secret.key || ''
     });
-    setDialogOpen(true);
+    setTlsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
-    if (!formData.name.trim()) {
+  const handleTlsSubmit = () => {
+    if (!tlsFormData.name.trim()) {
       toast.error('Secret name is required');
       return;
     }
 
-    if (editingSecret) {
-      updateTLSSecret(editingSecret.id, {
-        name: formData.name,
-        cert: formData.cert || undefined,
-        key: formData.key || undefined,
+    if (editingTlsSecret) {
+      updateTLSSecret(editingTlsSecret.id, {
+        name: tlsFormData.name,
+        cert: tlsFormData.cert || undefined,
+        key: tlsFormData.key || undefined,
       });
       toast.success('TLS secret updated');
     } else {
       const secret: TLSSecret = {
         id: crypto.randomUUID(),
         templateId: template.id,
-        name: formData.name,
+        name: tlsFormData.name,
         type: 'tls',
-        cert: formData.cert || undefined,
-        key: formData.key || undefined,
+        cert: tlsFormData.cert || undefined,
+        key: tlsFormData.key || undefined,
       };
       addTLSSecret(secret);
       toast.success('TLS secret added');
     }
     
-    setDialogOpen(false);
-    setFormData({ name: '', cert: '', key: '' });
-    setEditingSecret(null);
+    setTlsDialogOpen(false);
   };
 
-  const handleDelete = () => {
-    if (deleteId) {
-      deleteTLSSecret(deleteId);
+  const handleTlsDelete = () => {
+    if (deleteTlsId) {
+      deleteTLSSecret(deleteTlsId);
       toast.success('TLS secret deleted');
-      setDeleteId(null);
+      setDeleteTlsId(null);
+    }
+  };
+
+  // Opaque Secret handlers
+  const openNewOpaque = () => {
+    setEditingOpaqueSecret(null);
+    setOpaqueFormData({ name: '', keys: [] });
+    setOpaqueDialogOpen(true);
+  };
+
+  const openEditOpaque = (secret: OpaqueSecret) => {
+    setEditingOpaqueSecret(secret);
+    setOpaqueFormData({
+      name: secret.name,
+      keys: [...secret.keys],
+    });
+    setOpaqueDialogOpen(true);
+  };
+
+  const addOpaqueKey = () => {
+    setOpaqueFormData(prev => ({
+      ...prev,
+      keys: [...prev.keys, { name: '' }]
+    }));
+  };
+
+  const updateOpaqueKey = (index: number, name: string) => {
+    setOpaqueFormData(prev => ({
+      ...prev,
+      keys: prev.keys.map((k, i) => i === index ? { ...k, name } : k)
+    }));
+  };
+
+  const removeOpaqueKey = (index: number) => {
+    setOpaqueFormData(prev => ({
+      ...prev,
+      keys: prev.keys.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleOpaqueSubmit = () => {
+    if (!opaqueFormData.name.trim()) {
+      toast.error('Secret name is required');
+      return;
+    }
+
+    const keys = opaqueFormData.keys.filter(k => k.name.trim());
+
+    if (editingOpaqueSecret) {
+      updateOpaqueSecret(editingOpaqueSecret.id, {
+        name: opaqueFormData.name,
+        keys,
+      });
+      toast.success('Opaque secret updated');
+    } else {
+      const secret: OpaqueSecret = {
+        id: crypto.randomUUID(),
+        templateId: template.id,
+        name: opaqueFormData.name,
+        type: 'opaque',
+        keys,
+      };
+      addOpaqueSecret(secret);
+      toast.success('Opaque secret added');
+    }
+    
+    setOpaqueDialogOpen(false);
+  };
+
+  const handleOpaqueDelete = () => {
+    if (deleteOpaqueId) {
+      deleteOpaqueSecret(deleteOpaqueId);
+      toast.success('Opaque secret deleted');
+      setDeleteOpaqueId(null);
     }
   };
 
@@ -142,7 +221,7 @@ export function SecretsTab({ template }: SecretsTabProps) {
               Certificates for Ingress TLS termination
             </p>
           </div>
-          <Button onClick={openNew}>
+          <Button onClick={openNewTls}>
             <Plus className="mr-2 h-4 w-4" />
             Add TLS Secret
           </Button>
@@ -152,7 +231,7 @@ export function SecretsTab({ template }: SecretsTabProps) {
           <Card className="border-dashed border-2 bg-transparent">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="text-muted-foreground mb-4">No TLS secrets defined yet</p>
-              <Button variant="outline" onClick={openNew}>
+              <Button variant="outline" onClick={openNewTls}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add your first TLS secret
               </Button>
@@ -202,7 +281,7 @@ export function SecretsTab({ template }: SecretsTabProps) {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => openEdit(secret)}
+                          onClick={() => openEditTls(secret)}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
@@ -210,7 +289,7 @@ export function SecretsTab({ template }: SecretsTabProps) {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive"
-                          onClick={() => setDeleteId(secret.id)}
+                          onClick={() => setDeleteTlsId(secret.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -224,35 +303,129 @@ export function SecretsTab({ template }: SecretsTabProps) {
         )}
       </div>
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Opaque Secrets */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold">Opaque Secrets</h3>
+            <p className="text-sm text-muted-foreground">
+              Generic secrets for sensitive data (credentials, tokens, etc.)
+            </p>
+          </div>
+          <Button onClick={openNewOpaque}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Opaque Secret
+          </Button>
+        </div>
+
+        {template.opaqueSecrets.length === 0 ? (
+          <Card className="border-dashed border-2 bg-transparent">
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <p className="text-muted-foreground mb-4">No Opaque secrets defined yet</p>
+              <Button variant="outline" onClick={openNewOpaque}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add your first Opaque secret
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Keys</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {template.opaqueSecrets.map((secret) => (
+                  <TableRow key={secret.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <FileKey className="h-4 w-4 text-warning" />
+                        <span className="font-mono font-medium">{secret.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">Opaque</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {secret.keys.length > 0 ? (
+                          secret.keys.slice(0, 5).map((key, i) => (
+                            <Badge key={i} variant="secondary" className="font-mono text-xs">
+                              {key.name}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No keys defined</span>
+                        )}
+                        {secret.keys.length > 5 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{secret.keys.length - 5}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEditOpaque(secret)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => setDeleteOpaqueId(secret.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* TLS Add/Edit Dialog */}
+      <Dialog open={tlsDialogOpen} onOpenChange={setTlsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingSecret ? 'Edit TLS Secret' : 'Add TLS Secret'}</DialogTitle>
+            <DialogTitle>{editingTlsSecret ? 'Edit TLS Secret' : 'Add TLS Secret'}</DialogTitle>
             <DialogDescription>
-              {editingSecret 
+              {editingTlsSecret 
                 ? 'Update the TLS secret configuration' 
                 : 'Create a TLS secret for Ingress HTTPS termination'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Secret Name *</Label>
+              <Label htmlFor="tls-name">Secret Name *</Label>
               <Input
-                id="name"
+                id="tls-name"
                 placeholder="wildcard-tls"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={tlsFormData.name}
+                onChange={(e) => setTlsFormData({ ...tlsFormData, name: e.target.value })}
                 className="font-mono"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cert">Certificate (tls.crt)</Label>
+              <Label htmlFor="tls-cert">Certificate (tls.crt)</Label>
               <Textarea
-                id="cert"
+                id="tls-cert"
                 placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
-                value={formData.cert}
-                onChange={(e) => setFormData({ ...formData, cert: e.target.value })}
+                value={tlsFormData.cert}
+                onChange={(e) => setTlsFormData({ ...tlsFormData, cert: e.target.value })}
                 className="font-mono text-xs min-h-[120px]"
               />
               <p className="text-xs text-muted-foreground">
@@ -260,12 +433,12 @@ export function SecretsTab({ template }: SecretsTabProps) {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="key">Private Key (tls.key)</Label>
+              <Label htmlFor="tls-key">Private Key (tls.key)</Label>
               <Textarea
-                id="key"
+                id="tls-key"
                 placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
-                value={formData.key}
-                onChange={(e) => setFormData({ ...formData, key: e.target.value })}
+                value={tlsFormData.key}
+                onChange={(e) => setTlsFormData({ ...tlsFormData, key: e.target.value })}
                 className="font-mono text-xs min-h-[120px]"
               />
               <p className="text-xs text-muted-foreground">
@@ -274,18 +447,89 @@ export function SecretsTab({ template }: SecretsTabProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setTlsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
-              {editingSecret ? 'Update' : 'Add'} TLS Secret
+            <Button onClick={handleTlsSubmit}>
+              {editingTlsSecret ? 'Update' : 'Add'} TLS Secret
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      {/* Opaque Add/Edit Dialog */}
+      <Dialog open={opaqueDialogOpen} onOpenChange={setOpaqueDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingOpaqueSecret ? 'Edit Opaque Secret' : 'Add Opaque Secret'}</DialogTitle>
+            <DialogDescription>
+              {editingOpaqueSecret 
+                ? 'Update the Opaque secret configuration' 
+                : 'Create an Opaque secret with key-value pairs'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="opaque-name">Secret Name *</Label>
+              <Input
+                id="opaque-name"
+                placeholder="app-secrets"
+                value={opaqueFormData.name}
+                onChange={(e) => setOpaqueFormData({ ...opaqueFormData, name: e.target.value })}
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Keys</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addOpaqueKey}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Key
+                </Button>
+              </div>
+              {opaqueFormData.keys.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No keys defined</p>
+              ) : (
+                <div className="space-y-2">
+                  {opaqueFormData.keys.map((key, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        placeholder="DATABASE_PASSWORD"
+                        value={key.name}
+                        onChange={(e) => updateOpaqueKey(index, e.target.value)}
+                        className="font-mono"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive shrink-0"
+                        onClick={() => removeOpaqueKey(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Values will be assigned when creating chart versions
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpaqueDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleOpaqueSubmit}>
+              {editingOpaqueSecret ? 'Update' : 'Add'} Opaque Secret
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* TLS Delete Confirmation */}
+      <AlertDialog open={!!deleteTlsId} onOpenChange={() => setDeleteTlsId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete TLS Secret</AlertDialogTitle>
@@ -297,7 +541,28 @@ export function SecretsTab({ template }: SecretsTabProps) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDelete}
+              onClick={handleTlsDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Opaque Delete Confirmation */}
+      <AlertDialog open={!!deleteOpaqueId} onOpenChange={() => setDeleteOpaqueId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Opaque Secret</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this Opaque secret? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleOpaqueDelete}
             >
               Delete
             </AlertDialogAction>

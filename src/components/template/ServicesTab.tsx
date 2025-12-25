@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useHelmStore } from '@/lib/store';
-import { TemplateWithRelations, Service, EnvVarSchema, Route, ConfigMapEnvSource } from '@/types/helm';
+import { TemplateWithRelations, Service, EnvVarSchema, Route, ConfigMapEnvSource, SecretEnvSource } from '@/types/helm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, X, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Database } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ServicesTabProps {
@@ -55,6 +55,8 @@ interface FormData {
   livenessPath: string;
   readinessPath: string;
   configMapEnvSources: ConfigMapEnvSource[];
+  secretEnvSources: SecretEnvSource[];
+  useStatefulSet: boolean;
 }
 
 export function ServicesTab({ template }: ServicesTabProps) {
@@ -74,6 +76,8 @@ export function ServicesTab({ template }: ServicesTabProps) {
     livenessPath: '/health',
     readinessPath: '/ready',
     configMapEnvSources: [],
+    secretEnvSources: [],
+    useStatefulSet: false,
   });
 
   const openNew = () => {
@@ -86,6 +90,8 @@ export function ServicesTab({ template }: ServicesTabProps) {
       livenessPath: '/health',
       readinessPath: '/ready',
       configMapEnvSources: [],
+      secretEnvSources: [],
+      useStatefulSet: false,
     });
     setDialogOpen(true);
   };
@@ -100,6 +106,8 @@ export function ServicesTab({ template }: ServicesTabProps) {
       livenessPath: service.livenessPath,
       readinessPath: service.readinessPath,
       configMapEnvSources: service.configMapEnvSources ? [...service.configMapEnvSources] : [],
+      secretEnvSources: service.secretEnvSources ? [...service.secretEnvSources] : [],
+      useStatefulSet: service.useStatefulSet ?? false,
     });
     setDialogOpen(true);
   };
@@ -173,6 +181,29 @@ export function ServicesTab({ template }: ServicesTabProps) {
     }));
   };
 
+  const addSecretEnvSource = () => {
+    setFormData(prev => ({
+      ...prev,
+      secretEnvSources: [...prev.secretEnvSources, { secretName: '' }]
+    }));
+  };
+
+  const updateSecretEnvSource = (index: number, secretName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      secretEnvSources: prev.secretEnvSources.map((s, i) => 
+        i === index ? { secretName } : s
+      )
+    }));
+  };
+
+  const removeSecretEnvSource = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      secretEnvSources: prev.secretEnvSources.filter((_, i) => i !== index)
+    }));
+  };
+
   const handleSubmit = () => {
     if (!formData.name.trim()) {
       toast.error('Service name is required');
@@ -182,6 +213,7 @@ export function ServicesTab({ template }: ServicesTabProps) {
     const routes = formData.routes.filter(r => r.path.trim());
     const envVars = formData.envVars.filter(e => e.name.trim());
     const configMapEnvSources = formData.configMapEnvSources.filter(c => c.configMapName);
+    const secretEnvSources = formData.secretEnvSources.filter(s => s.secretName);
 
     if (editingService) {
       updateService(editingService.id, {
@@ -192,6 +224,8 @@ export function ServicesTab({ template }: ServicesTabProps) {
         livenessPath: formData.livenessPath,
         readinessPath: formData.readinessPath,
         configMapEnvSources,
+        secretEnvSources,
+        useStatefulSet: formData.useStatefulSet,
       });
       toast.success('Service updated');
     } else {
@@ -205,6 +239,8 @@ export function ServicesTab({ template }: ServicesTabProps) {
         livenessPath: formData.livenessPath,
         readinessPath: formData.readinessPath,
         configMapEnvSources,
+        secretEnvSources,
+        useStatefulSet: formData.useStatefulSet,
       };
       addService(service);
       toast.success('Service added');
@@ -220,6 +256,9 @@ export function ServicesTab({ template }: ServicesTabProps) {
       setDeleteId(null);
     }
   };
+
+  // Combine opaque secrets for selection
+  const availableSecrets = template.opaqueSecrets || [];
 
   return (
     <div className="space-y-4">
@@ -256,6 +295,7 @@ export function ServicesTab({ template }: ServicesTabProps) {
                 <TableHead>Routes</TableHead>
                 <TableHead>Env Vars</TableHead>
                 <TableHead>Health Check</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -294,6 +334,16 @@ export function ServicesTab({ template }: ServicesTabProps) {
                       <Check className="h-4 w-4 text-success" />
                     ) : (
                       <X className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {service.useStatefulSet ? (
+                      <Badge variant="outline" className="text-xs">
+                        <Database className="h-3 w-3 mr-1" />
+                        StatefulSet
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">Deployment</Badge>
                     )}
                   </TableCell>
                   <TableCell>
@@ -347,6 +397,21 @@ export function ServicesTab({ template }: ServicesTabProps) {
               <p className="text-xs text-muted-foreground">
                 Must be DNS-safe (lowercase, alphanumeric, hyphens)
               </p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Deploy as StatefulSet</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Use StatefulSet instead of Deployment (for stateful workloads)
+                </p>
+              </div>
+              <Switch
+                checked={formData.useStatefulSet}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, useStatefulSet: checked })
+                }
+              />
             </div>
 
             <div className="space-y-3">
@@ -459,6 +524,55 @@ export function ServicesTab({ template }: ServicesTabProps) {
                         size="icon"
                         className="h-9 w-9 text-destructive shrink-0"
                         onClick={() => removeConfigMapEnvSource(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Mount Secrets as Environment</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Load all keys from an Opaque Secret as environment variables
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addSecretEnvSource}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Secret
+                </Button>
+              </div>
+              {formData.secretEnvSources.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No Secrets mounted</p>
+              ) : (
+                <div className="space-y-2">
+                  {formData.secretEnvSources.map((source, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Select
+                        value={source.secretName}
+                        onValueChange={(value) => updateSecretEnvSource(index, value)}
+                      >
+                        <SelectTrigger className="font-mono">
+                          <SelectValue placeholder="Select Secret" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableSecrets.map((secret) => (
+                            <SelectItem key={secret.id} value={secret.name} className="font-mono">
+                              {secret.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive shrink-0"
+                        onClick={() => removeSecretEnvSource(index)}
                       >
                         <X className="h-4 w-4" />
                       </Button>
