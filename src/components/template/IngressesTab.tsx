@@ -4,9 +4,17 @@ import { TemplateWithRelations, Ingress, IngressRule } from '@/types/helm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, Network, Lock, Route } from 'lucide-react';
+import { Plus, Pencil, Trash2, Lock, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface IngressesTabProps {
@@ -180,72 +188,82 @@ export function IngressesTab({ template }: IngressesTabProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {template.ingresses.map((ingress) => (
-            <Card key={ingress.id} className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                      <Network className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base font-mono">{ingress.name}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {ingress.mode === 'nginx-gateway' ? 'Via Nginx Gateway' : 'Direct to Services'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEdit(ingress)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => setDeleteId(ingress.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {ingress.tlsEnabled && (
-                  <div className="flex items-center gap-2">
-                    <Lock className="h-3.5 w-3.5 text-success" />
-                    <span className="text-xs text-success">TLS Enabled</span>
-                    {ingress.tlsSecretName && (
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {ingress.tlsSecretName}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Routes:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {ingress.rules.length > 0 ? (
-                      ingress.rules.map((rule, i) => (
-                        <Badge key={i} variant="secondary" className="font-mono text-xs">
-                          <Route className="mr-1 h-3 w-3" />
-                          {rule.path} → {rule.serviceName}
-                        </Badge>
-                      ))
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Mode</TableHead>
+                <TableHead>TLS</TableHead>
+                <TableHead>Rules</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {template.ingresses.map((ingress) => (
+                <TableRow key={ingress.id}>
+                  <TableCell className="font-mono font-medium">{ingress.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {ingress.mode === 'nginx-gateway' ? 'Nginx Gateway' : 'Direct'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {ingress.tlsEnabled ? (
+                      <div className="flex items-center gap-1">
+                        <Lock className="h-3.5 w-3.5 text-success" />
+                        {ingress.tlsSecretName && (
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {ingress.tlsSecretName}
+                          </span>
+                        )}
+                      </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">No rules defined</span>
+                      <X className="h-4 w-4 text-muted-foreground" />
                     )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {ingress.rules.length > 0 ? (
+                        ingress.rules.slice(0, 2).map((rule, i) => (
+                          <Badge key={i} variant="secondary" className="font-mono text-xs">
+                            {rule.path}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No rules</span>
+                      )}
+                      {ingress.rules.length > 2 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{ingress.rules.length - 2}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEdit(ingress)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => setDeleteId(ingress.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 

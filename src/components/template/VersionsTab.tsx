@@ -3,8 +3,16 @@ import { useHelmStore } from '@/lib/store';
 import { TemplateWithRelations } from '@/types/helm';
 import { downloadChart } from '@/lib/helm-generator';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Download, Trash2, Layers, Clock } from 'lucide-react';
+import { Plus, Download, Trash2, Check, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useState } from 'react';
@@ -73,9 +81,6 @@ export function VersionsTab({ template }: VersionsTabProps) {
       {sortedVersions.length === 0 ? (
         <Card className="border-dashed border-2 bg-transparent">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <Layers className="h-6 w-6 text-primary" />
-            </div>
             <p className="text-muted-foreground mb-4">No versions created yet</p>
             <Link to={`/templates/${template.id}/versions/new`}>
               <Button variant="outline">
@@ -86,84 +91,86 @@ export function VersionsTab({ template }: VersionsTabProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {sortedVersions.map((version) => (
-            <Card key={version.id} className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
-                      <Layers className="h-5 w-5 text-accent" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base font-mono">
-                        v{version.versionName}
-                      </CardTitle>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(version.createdAt), 'MMM d, yyyy HH:mm')}
-                        {version.appVersion && (
-                          <>
-                            <span>•</span>
-                            <Badge variant="secondary" className="text-xs">
-                              App: {version.appVersion}
-                            </Badge>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownload(version.id)}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download .tgz
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive"
-                      onClick={() => setDeleteId(version.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Services:</span>{' '}
-                    {Object.keys(version.values.imageTags).length}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Nginx:</span>{' '}
-                    {(version.values.enableNginxGateway ?? template.enableNginxGateway)
-                      ? 'Enabled'
-                      : 'Disabled'}
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Redis:</span>{' '}
-                    {(version.values.enableRedis ?? template.enableRedis)
-                      ? 'Enabled'
-                      : 'Disabled'}
-                  </div>
-                </div>
-                {Object.keys(version.values.imageTags).length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1">
-                    {Object.entries(version.values.imageTags).map(([svc, tag]) => (
-                      <Badge key={svc} variant="secondary" className="font-mono text-xs">
-                        {svc}:{tag}
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Version</TableHead>
+                <TableHead>App Version</TableHead>
+                <TableHead>Services</TableHead>
+                <TableHead>Nginx</TableHead>
+                <TableHead>Redis</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="w-[120px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedVersions.map((version) => (
+                <TableRow key={version.id}>
+                  <TableCell className="font-mono font-medium">v{version.versionName}</TableCell>
+                  <TableCell>
+                    {version.appVersion ? (
+                      <Badge variant="secondary" className="text-xs">
+                        {version.appVersion}
                       </Badge>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {Object.entries(version.values.imageTags).slice(0, 2).map(([svc, tag]) => (
+                        <Badge key={svc} variant="outline" className="font-mono text-xs">
+                          {svc}:{tag}
+                        </Badge>
+                      ))}
+                      {Object.keys(version.values.imageTags).length > 2 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{Object.keys(version.values.imageTags).length - 2}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {(version.values.enableNginxGateway ?? template.enableNginxGateway) ? (
+                      <Check className="h-4 w-4 text-success" />
+                    ) : (
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {(version.values.enableRedis ?? template.enableRedis) ? (
+                      <Check className="h-4 w-4 text-success" />
+                    ) : (
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {format(new Date(version.createdAt), 'MMM d, yyyy')}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownload(version.id)}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => setDeleteId(version.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 

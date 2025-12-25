@@ -5,8 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Trash2, Key, Lock, Server, Pencil } from 'lucide-react';
+import { Plus, Trash2, Key, Lock, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SecretsTabProps {
@@ -108,37 +116,18 @@ export function SecretsTab({ template }: SecretsTabProps) {
       <div>
         <h3 className="text-lg font-semibold mb-4">Registry Secret</h3>
         <Card className="bg-card border-border">
-          <CardHeader>
+          <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
-                <Server className="h-5 w-5 text-accent" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Key className="h-5 w-5 text-primary" />
               </div>
-              <div>
-                <CardTitle className="text-base font-mono">
-                  {template.registrySecret.name}
-                </CardTitle>
-                <CardDescription>
-                  Docker registry credentials for pulling images
-                </CardDescription>
+              <div className="flex-1">
+                <p className="font-mono font-medium">{template.registrySecret.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {template.registrySecret.server} • {template.registrySecret.username || 'No username'}
+                </p>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Server:</span>
-                <Badge variant="secondary" className="font-mono">
-                  {template.registrySecret.server}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Username:</span>
-                <span className="font-mono">{template.registrySecret.username || '—'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Password:</span>
-                <span className="font-mono">••••••••</span>
-              </div>
+              <Badge variant="secondary">Registry</Badge>
             </div>
           </CardContent>
         </Card>
@@ -170,62 +159,67 @@ export function SecretsTab({ template }: SecretsTabProps) {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {template.tlsSecrets.map((secret) => (
-              <Card key={secret.id} className="bg-card border-border">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/10">
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Certificate</TableHead>
+                  <TableHead>Private Key</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {template.tlsSecrets.map((secret) => (
+                  <TableRow key={secret.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
                         <Lock className="h-4 w-4 text-success" />
+                        <span className="font-mono font-medium">{secret.name}</span>
                       </div>
-                      <CardTitle className="text-base font-mono">{secret.name}</CardTitle>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(secret)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => setDeleteId(secret.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-1">
-                    <Badge 
-                      variant={secret.cert ? "default" : "outline"} 
-                      className="font-mono text-xs"
-                    >
-                      <Key className="mr-1 h-3 w-3" />
-                      tls.crt {secret.cert ? '✓' : ''}
-                    </Badge>
-                    <Badge 
-                      variant={secret.key ? "default" : "outline"} 
-                      className="font-mono text-xs"
-                    >
-                      <Key className="mr-1 h-3 w-3" />
-                      tls.key {secret.key ? '✓' : ''}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {secret.cert && secret.key 
-                      ? 'Certificate and key configured' 
-                      : 'Values can be assigned per chart version'}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">TLS</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {secret.cert ? (
+                        <Check className="h-4 w-4 text-success" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {secret.key ? (
+                        <Check className="h-4 w-4 text-success" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEdit(secret)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => setDeleteId(secret.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
