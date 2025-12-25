@@ -12,6 +12,10 @@ export interface ConfigMapEnvSource {
   configMapName: string;
 }
 
+export interface SecretEnvSource {
+  secretName: string;
+}
+
 export interface Service {
   id: string;
   templateId: string;
@@ -22,6 +26,8 @@ export interface Service {
   livenessPath: string;
   readinessPath: string;
   configMapEnvSources: ConfigMapEnvSource[];
+  secretEnvSources: SecretEnvSource[];
+  useStatefulSet: boolean;
 }
 
 export interface ConfigMapKey {
@@ -52,6 +58,19 @@ export interface TLSSecret {
   type: 'tls';
   cert?: string;
   key?: string;
+}
+
+export interface OpaqueSecretKey {
+  name: string;
+  description?: string;
+}
+
+export interface OpaqueSecret {
+  id: string;
+  templateId: string;
+  name: string;
+  type: 'opaque';
+  keys: OpaqueSecretKey[];
 }
 
 export interface IngressRule {
@@ -107,6 +126,7 @@ export interface TemplateWithRelations extends Template {
   services: Service[];
   configMaps: ConfigMap[];
   tlsSecrets: TLSSecret[];
+  opaqueSecrets: OpaqueSecret[];
   ingresses: Ingress[];
   versions: ChartVersion[];
 }

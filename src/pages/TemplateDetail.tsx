@@ -48,6 +48,7 @@ export default function TemplateDetail() {
   const services = useHelmStore((state) => state.services);
   const configMaps = useHelmStore((state) => state.configMaps);
   const tlsSecrets = useHelmStore((state) => state.tlsSecrets);
+  const opaqueSecrets = useHelmStore((state) => state.opaqueSecrets);
   const ingresses = useHelmStore((state) => state.ingresses);
   const chartVersions = useHelmStore((state) => state.chartVersions);
   const deleteTemplate = useHelmStore((state) => state.deleteTemplate);
@@ -60,6 +61,7 @@ export default function TemplateDetail() {
         services: services.filter((s) => s.templateId === templateId),
         configMaps: configMaps.filter((c) => c.templateId === templateId),
         tlsSecrets: tlsSecrets.filter((s) => s.templateId === templateId),
+        opaqueSecrets: opaqueSecrets.filter((s) => s.templateId === templateId),
         ingresses: ingresses.filter((i) => i.templateId === templateId),
         versions: chartVersions.filter((v) => v.templateId === templateId),
       }
@@ -191,7 +193,7 @@ export default function TemplateDetail() {
               <Shield className="h-4 w-4" />
               Secrets
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                {template.tlsSecrets.length + 1}
+                {template.tlsSecrets.length + template.opaqueSecrets.length + 1}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="ingresses" className="gap-2">
