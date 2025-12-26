@@ -2,7 +2,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from '@/hooks/useAuth';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import Landing from './pages/Landing';
@@ -18,71 +18,82 @@ import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
 
+const router = createBrowserRouter([
+  // Public routes
+  {
+    path: '/',
+    element: <Landing />,
+  },
+  {
+    path: '/docs',
+    element: <Documentation />,
+  },
+  {
+    path: '/auth',
+    element: <Auth />,
+  },
+  // Protected routes
+  {
+    path: '/dashboard',
+    element: (
+      <ProtectedRoute>
+        <Dashboard />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/templates/new',
+    element: (
+      <ProtectedRoute>
+        <NewTemplate />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/templates/:templateId',
+    element: (
+      <ProtectedRoute>
+        <TemplateDetail />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/templates/:templateId/versions/new',
+    element: (
+      <ProtectedRoute>
+        <NewVersion />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/templates/:templateId/versions/:versionId',
+    element: (
+      <ProtectedRoute>
+        <VersionDetail />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/service-accounts',
+    element: (
+      <ProtectedRoute>
+        <ServiceAccounts />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '*',
+    element: <NotFound />,
+  },
+]);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/docs" element={<Documentation />} />
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Protected routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/templates/new"
-              element={
-                <ProtectedRoute>
-                  <NewTemplate />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/templates/:templateId"
-              element={
-                <ProtectedRoute>
-                  <TemplateDetail />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/templates/:templateId/versions/new"
-              element={
-                <ProtectedRoute>
-                  <NewVersion />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/templates/:templateId/versions/:versionId"
-              element={
-                <ProtectedRoute>
-                  <VersionDetail />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/service-accounts"
-              element={
-                <ProtectedRoute>
-                  <ServiceAccounts />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <RouterProvider router={router} />
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
