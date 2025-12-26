@@ -18,6 +18,112 @@ import {
   Key,
   Package,
 } from 'lucide-react';
+import React from 'react';
+
+// Component to render markdown content with proper code blocks
+function MarkdownContent({ content }: { content: string }) {
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+  let keyIndex = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Check for code block start
+    if (line.trim().startsWith('```')) {
+      const language = line.trim().replace('```', '');
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      elements.push(
+        <pre key={keyIndex++} className="bg-muted/50 border border-border rounded-lg p-4 my-3 overflow-x-auto">
+          <code className="text-sm font-mono text-foreground">{codeLines.join('\n')}</code>
+        </pre>
+      );
+      i++; // Skip closing ```
+      continue;
+    }
+
+    // Inline code handling
+    const processInlineCode = (text: string) => {
+      const parts = text.split(/(`[^`]+`)/g);
+      return parts.map((part, idx) => {
+        if (part.startsWith('`') && part.endsWith('`')) {
+          return (
+            <code key={idx} className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground">
+              {part.slice(1, -1)}
+            </code>
+          );
+        }
+        // Handle bold text
+        const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
+        return boldParts.map((boldPart, boldIdx) => {
+          if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
+            return <strong key={boldIdx}>{boldPart.slice(2, -2)}</strong>;
+          }
+          return boldPart;
+        });
+      });
+    };
+
+    if (line.startsWith('## ')) {
+      elements.push(
+        <h2 key={keyIndex++} className="text-xl font-semibold mt-6 mb-4 first:mt-0 text-foreground">
+          {line.replace('## ', '')}
+        </h2>
+      );
+    } else if (line.startsWith('### ')) {
+      elements.push(
+        <h3 key={keyIndex++} className="text-lg font-semibold mt-4 mb-2 text-foreground">
+          {line.replace('### ', '')}
+        </h3>
+      );
+    } else if (line.startsWith('- **')) {
+      const match = line.match(/- \*\*(.+?)\*\*: (.+)/);
+      if (match) {
+        elements.push(
+          <div key={keyIndex++} className="flex gap-2 my-1">
+            <span className="font-semibold text-foreground">{match[1]}:</span>
+            <span className="text-muted-foreground">{processInlineCode(match[2])}</span>
+          </div>
+        );
+      } else {
+        elements.push(
+          <p key={keyIndex++} className="my-2 text-muted-foreground">
+            {processInlineCode(line)}
+          </p>
+        );
+      }
+    } else if (line.match(/^\d+\./)) {
+      elements.push(
+        <div key={keyIndex++} className="my-1 text-muted-foreground">
+          {processInlineCode(line)}
+        </div>
+      );
+    } else if (line.startsWith('- ')) {
+      elements.push(
+        <div key={keyIndex++} className="my-1 pl-4 text-muted-foreground">
+          • {processInlineCode(line.replace('- ', ''))}
+        </div>
+      );
+    } else if (line.trim() === '') {
+      // Skip empty lines
+    } else {
+      elements.push(
+        <p key={keyIndex++} className="my-2 text-muted-foreground">
+          {processInlineCode(line)}
+        </p>
+      );
+    }
+    i++;
+  }
+
+  return <>{elements}</>;
+}
 
 const sections = [
   {
@@ -428,53 +534,7 @@ export default function Documentation() {
                   </CardHeader>
                   <CardContent>
                     <div className="prose prose-sm max-w-none dark:prose-invert">
-                      {section.content.split('\n').map((line, i) => {
-                        if (line.startsWith('## ')) {
-                          return (
-                            <h2 key={i} className="text-xl font-semibold mt-6 mb-4 first:mt-0">
-                              {line.replace('## ', '')}
-                            </h2>
-                          );
-                        }
-                        if (line.startsWith('### ')) {
-                          return (
-                            <h3 key={i} className="text-lg font-semibold mt-4 mb-2">
-                              {line.replace('### ', '')}
-                            </h3>
-                          );
-                        }
-                        if (line.startsWith('- **')) {
-                          const match = line.match(/- \*\*(.+?)\*\*: (.+)/);
-                          if (match) {
-                            return (
-                              <div key={i} className="flex gap-2 my-1">
-                                <span className="font-semibold">{match[1]}:</span>
-                                <span className="text-muted-foreground">{match[2]}</span>
-                              </div>
-                            );
-                          }
-                        }
-                        if (line.match(/^\d+\./)) {
-                          return (
-                            <div key={i} className="my-1 text-muted-foreground">
-                              {line}
-                            </div>
-                          );
-                        }
-                        if (line.startsWith('- ')) {
-                          return (
-                            <div key={i} className="my-1 pl-4 text-muted-foreground">
-                              • {line.replace('- ', '')}
-                            </div>
-                          );
-                        }
-                        if (line.trim() === '') return null;
-                        return (
-                          <p key={i} className="my-2 text-muted-foreground">
-                            {line}
-                          </p>
-                        );
-                      })}
+                      <MarkdownContent content={section.content} />
                     </div>
                   </CardContent>
                 </Card>
