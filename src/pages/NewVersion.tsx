@@ -167,21 +167,25 @@ export default function NewVersion() {
       createdAt: new Date().toISOString(),
     };
 
-    addChartVersion(version);
-    toast.success('Version created successfully');
-
-    // Auto download
     try {
-      await downloadChart(
-        { ...template, versions: [...template.versions, version] },
-        version
-      );
-      toast.success('Chart downloaded');
-    } catch (error) {
-      console.error(error);
-    }
+      await addChartVersion(version);
+      toast.success('Version created successfully');
 
-    navigate(`/templates/${template.id}`);
+      // Auto download
+      try {
+        await downloadChart(
+          { ...template, versions: [...template.versions, version] },
+          version
+        );
+        toast.success('Chart downloaded');
+      } catch (error) {
+        console.error(error);
+      }
+
+      navigate(`/templates/${template.id}`);
+    } catch (error) {
+      // Error is already handled in the store
+    }
   };
 
   const renderStep = () => {

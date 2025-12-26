@@ -1,0 +1,572 @@
+import { supabase } from '@/integrations/supabase/client';
+import {
+  Template,
+  Service,
+  ConfigMap,
+  TLSSecret,
+  OpaqueSecret,
+  Ingress,
+  ChartVersion,
+  TemplateWithRelations,
+} from '@/types/helm';
+
+// Helper to convert database template to app template
+function dbTemplateToApp(dbTemplate: any): Template {
+  return {
+    id: dbTemplate.id,
+    name: dbTemplate.name,
+    description: dbTemplate.description || '',
+    sharedPort: dbTemplate.shared_port,
+    registryUrl: dbTemplate.registry_url || '',
+    registryProject: dbTemplate.registry_project || '',
+    registrySecret: (dbTemplate.registry_secret as any) || {
+      name: 'registry-credentials',
+      type: 'registry',
+      server: dbTemplate.registry_url || '',
+      username: '',
+      email: '',
+    },
+    enableNginxGateway: dbTemplate.enable_nginx_gateway,
+    enableRedis: dbTemplate.enable_redis,
+    createdAt: dbTemplate.created_at,
+    updatedAt: dbTemplate.updated_at,
+  };
+}
+
+// Helper to convert app template to database format
+function appTemplateToDb(template: Template | Partial<Template>): any {
+  return {
+    name: template.name,
+    description: template.description || null,
+    shared_port: template.sharedPort,
+    registry_url: template.registryUrl || null,
+    registry_project: template.registryProject || null,
+    registry_secret: template.registrySecret || null,
+    enable_nginx_gateway: template.enableNginxGateway,
+    enable_redis: template.enableRedis,
+  };
+}
+
+// Helper to convert database service to app service
+function dbServiceToApp(dbService: any): Service {
+  return {
+    id: dbService.id,
+    templateId: dbService.template_id,
+    name: dbService.name,
+    routes: (dbService.routes as any[]) || [],
+    envVars: (dbService.env_vars as any[]) || [],
+    healthCheckEnabled: dbService.health_check_enabled,
+    livenessPath: dbService.liveness_path || '/health',
+    readinessPath: dbService.readiness_path || '/ready',
+    configMapEnvSources: (dbService.config_map_env_sources as any[]) || [],
+    secretEnvSources: (dbService.secret_env_sources as any[]) || [],
+    useStatefulSet: dbService.use_stateful_set,
+  };
+}
+
+// Helper to convert app service to database format
+function appServiceToDb(service: Service | Partial<Service>): any {
+  return {
+    template_id: service.templateId,
+    name: service.name,
+    routes: service.routes || [],
+    env_vars: service.envVars || [],
+    health_check_enabled: service.healthCheckEnabled ?? false,
+    liveness_path: service.livenessPath || '/health',
+    readiness_path: service.readinessPath || '/ready',
+    config_map_env_sources: service.configMapEnvSources || [],
+    secret_env_sources: service.secretEnvSources || [],
+    use_stateful_set: service.useStatefulSet ?? false,
+  };
+}
+
+// Helper to convert database configmap to app configmap
+function dbConfigMapToApp(dbConfigMap: any): ConfigMap {
+  return {
+    id: dbConfigMap.id,
+    templateId: dbConfigMap.template_id,
+    name: dbConfigMap.name,
+    keys: (dbConfigMap.keys as any[]) || [],
+  };
+}
+
+// Helper to convert app configmap to database format
+function appConfigMapToDb(configMap: ConfigMap | Partial<ConfigMap>): any {
+  return {
+    template_id: configMap.templateId,
+    name: configMap.name,
+    keys: configMap.keys || [],
+  };
+}
+
+// Helper to convert database TLS secret to app TLS secret
+function dbTLSSecretToApp(dbSecret: any): TLSSecret {
+  return {
+    id: dbSecret.id,
+    templateId: dbSecret.template_id,
+    name: dbSecret.name,
+    type: 'tls',
+  };
+}
+
+// Helper to convert app TLS secret to database format
+function appTLSSecretToDb(secret: TLSSecret | Partial<TLSSecret>): any {
+  return {
+    template_id: secret.templateId,
+    name: secret.name,
+  };
+}
+
+// Helper to convert database opaque secret to app opaque secret
+function dbOpaqueSecretToApp(dbSecret: any): OpaqueSecret {
+  return {
+    id: dbSecret.id,
+    templateId: dbSecret.template_id,
+    name: dbSecret.name,
+    type: 'opaque',
+    keys: (dbSecret.keys as any[]) || [],
+  };
+}
+
+// Helper to convert app opaque secret to database format
+function appOpaqueSecretToDb(secret: OpaqueSecret | Partial<OpaqueSecret>): any {
+  return {
+    template_id: secret.templateId,
+    name: secret.name,
+    keys: secret.keys || [],
+  };
+}
+
+// Helper to convert database ingress to app ingress
+function dbIngressToApp(dbIngress: any): Ingress {
+  return {
+    id: dbIngress.id,
+    templateId: dbIngress.template_id,
+    name: dbIngress.name,
+    mode: (dbIngress.mode as 'nginx-gateway' | 'direct-services') || 'nginx-gateway',
+    rules: (dbIngress.rules as any[]) || [],
+    defaultHost: dbIngress.default_host || undefined,
+    tlsEnabled: dbIngress.tls_enabled,
+    tlsSecretName: dbIngress.tls_secret_name || undefined,
+  };
+}
+
+// Helper to convert app ingress to database format
+function appIngressToDb(ingress: Ingress | Partial<Ingress>): any {
+  return {
+    template_id: ingress.templateId,
+    name: ingress.name,
+    mode: ingress.mode || 'nginx-gateway',
+    rules: ingress.rules || [],
+    default_host: ingress.defaultHost || null,
+    tls_enabled: ingress.tlsEnabled ?? false,
+    tls_secret_name: ingress.tlsSecretName || null,
+  };
+}
+
+// Helper to convert database chart version to app chart version
+function dbChartVersionToApp(dbVersion: any): ChartVersion {
+  return {
+    id: dbVersion.id,
+    templateId: dbVersion.template_id,
+    versionName: dbVersion.version_name,
+    appVersion: dbVersion.app_version || undefined,
+    values: (dbVersion.values as any) || {},
+    createdAt: dbVersion.created_at,
+  };
+}
+
+// Helper to convert app chart version to database format
+function appChartVersionToDb(version: ChartVersion | Partial<ChartVersion>): any {
+  return {
+    template_id: version.templateId,
+    version_name: version.versionName,
+    app_version: version.appVersion || null,
+    values: version.values || {},
+  };
+}
+
+// Template operations
+export const templateDb = {
+  async getAll(): Promise<Template[]> {
+    const { data, error } = await supabase
+      .from('templates')
+      .select('*')
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(dbTemplateToApp);
+  },
+
+  async getById(id: string): Promise<Template | null> {
+    const { data, error } = await supabase
+      .from('templates')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+    return data ? dbTemplateToApp(data) : null;
+  },
+
+  async create(template: Template): Promise<Template> {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase
+      .from('templates')
+      .insert({
+        id: template.id,
+        user_id: userData.user.id,
+        ...appTemplateToDb(template),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbTemplateToApp(data);
+  },
+
+  async update(id: string, updates: Partial<Template>): Promise<Template> {
+    const { data, error } = await supabase
+      .from('templates')
+      .update({
+        ...appTemplateToDb(updates),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbTemplateToApp(data);
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('templates')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+};
+
+// Service operations
+export const serviceDb = {
+  async getByTemplateId(templateId: string): Promise<Service[]> {
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(dbServiceToApp);
+  },
+
+  async create(service: Service): Promise<Service> {
+    const { data, error } = await supabase
+      .from('services')
+      .insert({
+        id: service.id,
+        ...appServiceToDb(service),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbServiceToApp(data);
+  },
+
+  async update(id: string, updates: Partial<Service>): Promise<Service> {
+    const { data, error } = await supabase
+      .from('services')
+      .update(appServiceToDb(updates as Service))
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbServiceToApp(data);
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('services')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+};
+
+// ConfigMap operations
+export const configMapDb = {
+  async getByTemplateId(templateId: string): Promise<ConfigMap[]> {
+    const { data, error } = await supabase
+      .from('config_maps')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(dbConfigMapToApp);
+  },
+
+  async create(configMap: ConfigMap): Promise<ConfigMap> {
+    const { data, error } = await supabase
+      .from('config_maps')
+      .insert({
+        id: configMap.id,
+        ...appConfigMapToDb(configMap),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbConfigMapToApp(data);
+  },
+
+  async update(id: string, updates: Partial<ConfigMap>): Promise<ConfigMap> {
+    const { data, error } = await supabase
+      .from('config_maps')
+      .update(appConfigMapToDb(updates as ConfigMap))
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbConfigMapToApp(data);
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('config_maps')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+};
+
+// TLS Secret operations
+export const tlsSecretDb = {
+  async getByTemplateId(templateId: string): Promise<TLSSecret[]> {
+    const { data, error } = await supabase
+      .from('tls_secrets')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(dbTLSSecretToApp);
+  },
+
+  async create(secret: TLSSecret): Promise<TLSSecret> {
+    const { data, error } = await supabase
+      .from('tls_secrets')
+      .insert({
+        id: secret.id,
+        ...appTLSSecretToDb(secret),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbTLSSecretToApp(data);
+  },
+
+  async update(id: string, updates: Partial<TLSSecret>): Promise<TLSSecret> {
+    const { data, error } = await supabase
+      .from('tls_secrets')
+      .update(appTLSSecretToDb(updates as TLSSecret))
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbTLSSecretToApp(data);
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('tls_secrets')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+};
+
+// Opaque Secret operations
+export const opaqueSecretDb = {
+  async getByTemplateId(templateId: string): Promise<OpaqueSecret[]> {
+    const { data, error } = await supabase
+      .from('opaque_secrets')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(dbOpaqueSecretToApp);
+  },
+
+  async create(secret: OpaqueSecret): Promise<OpaqueSecret> {
+    const { data, error } = await supabase
+      .from('opaque_secrets')
+      .insert({
+        id: secret.id,
+        ...appOpaqueSecretToDb(secret),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbOpaqueSecretToApp(data);
+  },
+
+  async update(id: string, updates: Partial<OpaqueSecret>): Promise<OpaqueSecret> {
+    const { data, error } = await supabase
+      .from('opaque_secrets')
+      .update(appOpaqueSecretToDb(updates as OpaqueSecret))
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbOpaqueSecretToApp(data);
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('opaque_secrets')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+};
+
+// Ingress operations
+export const ingressDb = {
+  async getByTemplateId(templateId: string): Promise<Ingress[]> {
+    const { data, error } = await supabase
+      .from('ingresses')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(dbIngressToApp);
+  },
+
+  async create(ingress: Ingress): Promise<Ingress> {
+    const { data, error } = await supabase
+      .from('ingresses')
+      .insert({
+        id: ingress.id,
+        ...appIngressToDb(ingress),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbIngressToApp(data);
+  },
+
+  async update(id: string, updates: Partial<Ingress>): Promise<Ingress> {
+    const { data, error } = await supabase
+      .from('ingresses')
+      .update(appIngressToDb(updates as Ingress))
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbIngressToApp(data);
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('ingresses')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+};
+
+// Chart Version operations
+export const chartVersionDb = {
+  async getByTemplateId(templateId: string): Promise<ChartVersion[]> {
+    const { data, error } = await supabase
+      .from('chart_versions')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(dbChartVersionToApp);
+  },
+
+  async create(version: ChartVersion): Promise<ChartVersion> {
+    const { data, error } = await supabase
+      .from('chart_versions')
+      .insert({
+        id: version.id,
+        ...appChartVersionToDb(version),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return dbChartVersionToApp(data);
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('chart_versions')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+};
+
+// Load all data for a user
+export async function loadAllData(): Promise<{
+  templates: Template[];
+  services: Service[];
+  configMaps: ConfigMap[];
+  tlsSecrets: TLSSecret[];
+  opaqueSecrets: OpaqueSecret[];
+  ingresses: Ingress[];
+  chartVersions: ChartVersion[];
+}> {
+  const templates = await templateDb.getAll();
+  const templateIds = templates.map((t) => t.id);
+
+  const [services, configMaps, tlsSecrets, opaqueSecrets, ingresses, chartVersions] = await Promise.all([
+    Promise.all(templateIds.map((id) => serviceDb.getByTemplateId(id))).then((results) => results.flat()),
+    Promise.all(templateIds.map((id) => configMapDb.getByTemplateId(id))).then((results) => results.flat()),
+    Promise.all(templateIds.map((id) => tlsSecretDb.getByTemplateId(id))).then((results) => results.flat()),
+    Promise.all(templateIds.map((id) => opaqueSecretDb.getByTemplateId(id))).then((results) => results.flat()),
+    Promise.all(templateIds.map((id) => ingressDb.getByTemplateId(id))).then((results) => results.flat()),
+    Promise.all(templateIds.map((id) => chartVersionDb.getByTemplateId(id))).then((results) => results.flat()),
+  ]);
+
+  return {
+    templates,
+    services,
+    configMaps,
+    tlsSecrets,
+    opaqueSecrets,
+    ingresses,
+    chartVersions,
+  };
+}
+

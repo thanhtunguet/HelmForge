@@ -89,7 +89,7 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast.error('ConfigMap name is required');
       return;
@@ -97,28 +97,36 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
 
     const keys = formData.keys.filter(k => k.name.trim());
 
-    if (editingConfigMap) {
-      updateConfigMap(editingConfigMap.id, { name: formData.name, keys });
-      toast.success('ConfigMap updated');
-    } else {
-      const configMap: ConfigMap = {
-        id: crypto.randomUUID(),
-        templateId: template.id,
-        name: formData.name,
-        keys,
-      };
-      addConfigMap(configMap);
-      toast.success('ConfigMap added');
-    }
+    try {
+      if (editingConfigMap) {
+        await updateConfigMap(editingConfigMap.id, { name: formData.name, keys });
+        toast.success('ConfigMap updated');
+      } else {
+        const configMap: ConfigMap = {
+          id: crypto.randomUUID(),
+          templateId: template.id,
+          name: formData.name,
+          keys,
+        };
+        await addConfigMap(configMap);
+        toast.success('ConfigMap added');
+      }
 
-    setDialogOpen(false);
+      setDialogOpen(false);
+    } catch (error) {
+      // Error is already handled in the store
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteId) {
-      deleteConfigMap(deleteId);
-      toast.success('ConfigMap deleted');
-      setDeleteId(null);
+      try {
+        await deleteConfigMap(deleteId);
+        toast.success('ConfigMap deleted');
+        setDeleteId(null);
+      } catch (error) {
+        // Error is already handled in the store
+      }
     }
   };
 

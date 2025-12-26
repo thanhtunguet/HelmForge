@@ -10,6 +10,17 @@ import {
   ChartVersion,
   TemplateWithRelations,
 } from '@/types/helm';
+import {
+  templateDb,
+  serviceDb,
+  configMapDb,
+  tlsSecretDb,
+  opaqueSecretDb,
+  ingressDb,
+  chartVersionDb,
+  loadAllData,
+} from './db-service';
+import { toast } from 'sonner';
 
 interface HelmStore {
   templates: Template[];
@@ -19,41 +30,45 @@ interface HelmStore {
   opaqueSecrets: OpaqueSecret[];
   ingresses: Ingress[];
   chartVersions: ChartVersion[];
+  isLoading: boolean;
+  
+  // Initialization
+  loadFromDatabase: () => Promise<void>;
   
   // Template actions
-  addTemplate: (template: Template) => void;
-  updateTemplate: (id: string, template: Partial<Template>) => void;
-  deleteTemplate: (id: string) => void;
+  addTemplate: (template: Template) => Promise<void>;
+  updateTemplate: (id: string, template: Partial<Template>) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
   getTemplateWithRelations: (id: string) => TemplateWithRelations | undefined;
   
   // Service actions
-  addService: (service: Service) => void;
-  updateService: (id: string, service: Partial<Service>) => void;
-  deleteService: (id: string) => void;
+  addService: (service: Service) => Promise<void>;
+  updateService: (id: string, service: Partial<Service>) => Promise<void>;
+  deleteService: (id: string) => Promise<void>;
   
   // ConfigMap actions
-  addConfigMap: (configMap: ConfigMap) => void;
-  updateConfigMap: (id: string, configMap: Partial<ConfigMap>) => void;
-  deleteConfigMap: (id: string) => void;
+  addConfigMap: (configMap: ConfigMap) => Promise<void>;
+  updateConfigMap: (id: string, configMap: Partial<ConfigMap>) => Promise<void>;
+  deleteConfigMap: (id: string) => Promise<void>;
   
   // TLS Secret actions
-  addTLSSecret: (secret: TLSSecret) => void;
-  updateTLSSecret: (id: string, secret: Partial<TLSSecret>) => void;
-  deleteTLSSecret: (id: string) => void;
+  addTLSSecret: (secret: TLSSecret) => Promise<void>;
+  updateTLSSecret: (id: string, secret: Partial<TLSSecret>) => Promise<void>;
+  deleteTLSSecret: (id: string) => Promise<void>;
   
   // Opaque Secret actions
-  addOpaqueSecret: (secret: OpaqueSecret) => void;
-  updateOpaqueSecret: (id: string, secret: Partial<OpaqueSecret>) => void;
-  deleteOpaqueSecret: (id: string) => void;
+  addOpaqueSecret: (secret: OpaqueSecret) => Promise<void>;
+  updateOpaqueSecret: (id: string, secret: Partial<OpaqueSecret>) => Promise<void>;
+  deleteOpaqueSecret: (id: string) => Promise<void>;
   
   // Ingress actions
-  addIngress: (ingress: Ingress) => void;
-  updateIngress: (id: string, ingress: Partial<Ingress>) => void;
-  deleteIngress: (id: string) => void;
+  addIngress: (ingress: Ingress) => Promise<void>;
+  updateIngress: (id: string, ingress: Partial<Ingress>) => Promise<void>;
+  deleteIngress: (id: string) => Promise<void>;
   
   // Chart Version actions
-  addChartVersion: (version: ChartVersion) => void;
-  deleteChartVersion: (id: string) => void;
+  addChartVersion: (version: ChartVersion) => Promise<void>;
+  deleteChartVersion: (id: string) => Promise<void>;
 }
 
 export const useHelmStore = create<HelmStore>()(
@@ -66,27 +81,67 @@ export const useHelmStore = create<HelmStore>()(
       opaqueSecrets: [],
       ingresses: [],
       chartVersions: [],
+      isLoading: false,
       
-      addTemplate: (template) =>
-        set((state) => ({ templates: [...state.templates, template] })),
+      loadFromDatabase: async () => {
+        set({ isLoading: true });
+        try {
+          const data = await loadAllData();
+          set({
+            ...data,
+            isLoading: false,
+          });
+        } catch (error) {
+          console.error('Failed to load data from database:', error);
+          toast.error('Failed to load data from database');
+          set({ isLoading: false });
+        }
+      },
       
-      updateTemplate: (id, updates) =>
-        set((state) => ({
-          templates: state.templates.map((t) =>
-            t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t
-          ),
-        })),
+      addTemplate: async (template) => {
+        try {
+          const saved = await templateDb.create(template);
+          set((state) => ({ templates: [...state.templates, saved] }));
+        } catch (error) {
+          console.error('Failed to create template:', error);
+          toast.error('Failed to create template');
+          throw error;
+        }
+      },
       
-      deleteTemplate: (id) =>
-        set((state) => ({
-          templates: state.templates.filter((t) => t.id !== id),
-          services: state.services.filter((s) => s.templateId !== id),
-          configMaps: state.configMaps.filter((c) => c.templateId !== id),
-          tlsSecrets: state.tlsSecrets.filter((s) => s.templateId !== id),
-          opaqueSecrets: state.opaqueSecrets.filter((s) => s.templateId !== id),
-          ingresses: state.ingresses.filter((i) => i.templateId !== id),
-          chartVersions: state.chartVersions.filter((v) => v.templateId !== id),
-        })),
+      updateTemplate: async (id, updates) => {
+        try {
+          const saved = await templateDb.update(id, updates);
+          set((state) => ({
+            templates: state.templates.map((t) =>
+              t.id === id ? saved : t
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to update template:', error);
+          toast.error('Failed to update template');
+          throw error;
+        }
+      },
+      
+      deleteTemplate: async (id) => {
+        try {
+          await templateDb.delete(id);
+          set((state) => ({
+            templates: state.templates.filter((t) => t.id !== id),
+            services: state.services.filter((s) => s.templateId !== id),
+            configMaps: state.configMaps.filter((c) => c.templateId !== id),
+            tlsSecrets: state.tlsSecrets.filter((s) => s.templateId !== id),
+            opaqueSecrets: state.opaqueSecrets.filter((s) => s.templateId !== id),
+            ingresses: state.ingresses.filter((i) => i.templateId !== id),
+            chartVersions: state.chartVersions.filter((v) => v.templateId !== id),
+          }));
+        } catch (error) {
+          console.error('Failed to delete template:', error);
+          toast.error('Failed to delete template');
+          throw error;
+        }
+      },
       
       getTemplateWithRelations: (id) => {
         const state = get();
@@ -104,88 +159,224 @@ export const useHelmStore = create<HelmStore>()(
         };
       },
       
-      addService: (service) =>
-        set((state) => ({ services: [...state.services, service] })),
+      addService: async (service) => {
+        try {
+          const saved = await serviceDb.create(service);
+          set((state) => ({ services: [...state.services, saved] }));
+        } catch (error) {
+          console.error('Failed to create service:', error);
+          toast.error('Failed to create service');
+          throw error;
+        }
+      },
       
-      updateService: (id, updates) =>
-        set((state) => ({
-          services: state.services.map((s) =>
-            s.id === id ? { ...s, ...updates } : s
-          ),
-        })),
+      updateService: async (id, updates) => {
+        try {
+          const saved = await serviceDb.update(id, updates);
+          set((state) => ({
+            services: state.services.map((s) =>
+              s.id === id ? saved : s
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to update service:', error);
+          toast.error('Failed to update service');
+          throw error;
+        }
+      },
       
-      deleteService: (id) =>
-        set((state) => ({
-          services: state.services.filter((s) => s.id !== id),
-        })),
+      deleteService: async (id) => {
+        try {
+          await serviceDb.delete(id);
+          set((state) => ({
+            services: state.services.filter((s) => s.id !== id),
+          }));
+        } catch (error) {
+          console.error('Failed to delete service:', error);
+          toast.error('Failed to delete service');
+          throw error;
+        }
+      },
       
-      addConfigMap: (configMap) =>
-        set((state) => ({ configMaps: [...state.configMaps, configMap] })),
+      addConfigMap: async (configMap) => {
+        try {
+          const saved = await configMapDb.create(configMap);
+          set((state) => ({ configMaps: [...state.configMaps, saved] }));
+        } catch (error) {
+          console.error('Failed to create config map:', error);
+          toast.error('Failed to create config map');
+          throw error;
+        }
+      },
       
-      updateConfigMap: (id, updates) =>
-        set((state) => ({
-          configMaps: state.configMaps.map((c) =>
-            c.id === id ? { ...c, ...updates } : c
-          ),
-        })),
+      updateConfigMap: async (id, updates) => {
+        try {
+          const saved = await configMapDb.update(id, updates);
+          set((state) => ({
+            configMaps: state.configMaps.map((c) =>
+              c.id === id ? saved : c
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to update config map:', error);
+          toast.error('Failed to update config map');
+          throw error;
+        }
+      },
       
-      deleteConfigMap: (id) =>
-        set((state) => ({
-          configMaps: state.configMaps.filter((c) => c.id !== id),
-        })),
+      deleteConfigMap: async (id) => {
+        try {
+          await configMapDb.delete(id);
+          set((state) => ({
+            configMaps: state.configMaps.filter((c) => c.id !== id),
+          }));
+        } catch (error) {
+          console.error('Failed to delete config map:', error);
+          toast.error('Failed to delete config map');
+          throw error;
+        }
+      },
       
-      addTLSSecret: (secret) =>
-        set((state) => ({ tlsSecrets: [...state.tlsSecrets, secret] })),
+      addTLSSecret: async (secret) => {
+        try {
+          const saved = await tlsSecretDb.create(secret);
+          set((state) => ({ tlsSecrets: [...state.tlsSecrets, saved] }));
+        } catch (error) {
+          console.error('Failed to create TLS secret:', error);
+          toast.error('Failed to create TLS secret');
+          throw error;
+        }
+      },
       
-      updateTLSSecret: (id, updates) =>
-        set((state) => ({
-          tlsSecrets: state.tlsSecrets.map((s) =>
-            s.id === id ? { ...s, ...updates } : s
-          ),
-        })),
+      updateTLSSecret: async (id, updates) => {
+        try {
+          const saved = await tlsSecretDb.update(id, updates);
+          set((state) => ({
+            tlsSecrets: state.tlsSecrets.map((s) =>
+              s.id === id ? saved : s
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to update TLS secret:', error);
+          toast.error('Failed to update TLS secret');
+          throw error;
+        }
+      },
       
-      deleteTLSSecret: (id) =>
-        set((state) => ({
-          tlsSecrets: state.tlsSecrets.filter((s) => s.id !== id),
-        })),
+      deleteTLSSecret: async (id) => {
+        try {
+          await tlsSecretDb.delete(id);
+          set((state) => ({
+            tlsSecrets: state.tlsSecrets.filter((s) => s.id !== id),
+          }));
+        } catch (error) {
+          console.error('Failed to delete TLS secret:', error);
+          toast.error('Failed to delete TLS secret');
+          throw error;
+        }
+      },
       
-      addOpaqueSecret: (secret) =>
-        set((state) => ({ opaqueSecrets: [...state.opaqueSecrets, secret] })),
+      addOpaqueSecret: async (secret) => {
+        try {
+          const saved = await opaqueSecretDb.create(secret);
+          set((state) => ({ opaqueSecrets: [...state.opaqueSecrets, saved] }));
+        } catch (error) {
+          console.error('Failed to create opaque secret:', error);
+          toast.error('Failed to create opaque secret');
+          throw error;
+        }
+      },
       
-      updateOpaqueSecret: (id, updates) =>
-        set((state) => ({
-          opaqueSecrets: state.opaqueSecrets.map((s) =>
-            s.id === id ? { ...s, ...updates } : s
-          ),
-        })),
+      updateOpaqueSecret: async (id, updates) => {
+        try {
+          const saved = await opaqueSecretDb.update(id, updates);
+          set((state) => ({
+            opaqueSecrets: state.opaqueSecrets.map((s) =>
+              s.id === id ? saved : s
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to update opaque secret:', error);
+          toast.error('Failed to update opaque secret');
+          throw error;
+        }
+      },
       
-      deleteOpaqueSecret: (id) =>
-        set((state) => ({
-          opaqueSecrets: state.opaqueSecrets.filter((s) => s.id !== id),
-        })),
+      deleteOpaqueSecret: async (id) => {
+        try {
+          await opaqueSecretDb.delete(id);
+          set((state) => ({
+            opaqueSecrets: state.opaqueSecrets.filter((s) => s.id !== id),
+          }));
+        } catch (error) {
+          console.error('Failed to delete opaque secret:', error);
+          toast.error('Failed to delete opaque secret');
+          throw error;
+        }
+      },
       
-      addIngress: (ingress) =>
-        set((state) => ({ ingresses: [...state.ingresses, ingress] })),
+      addIngress: async (ingress) => {
+        try {
+          const saved = await ingressDb.create(ingress);
+          set((state) => ({ ingresses: [...state.ingresses, saved] }));
+        } catch (error) {
+          console.error('Failed to create ingress:', error);
+          toast.error('Failed to create ingress');
+          throw error;
+        }
+      },
       
-      updateIngress: (id, updates) =>
-        set((state) => ({
-          ingresses: state.ingresses.map((i) =>
-            i.id === id ? { ...i, ...updates } : i
-          ),
-        })),
+      updateIngress: async (id, updates) => {
+        try {
+          const saved = await ingressDb.update(id, updates);
+          set((state) => ({
+            ingresses: state.ingresses.map((i) =>
+              i.id === id ? saved : i
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to update ingress:', error);
+          toast.error('Failed to update ingress');
+          throw error;
+        }
+      },
       
-      deleteIngress: (id) =>
-        set((state) => ({
-          ingresses: state.ingresses.filter((i) => i.id !== id),
-        })),
+      deleteIngress: async (id) => {
+        try {
+          await ingressDb.delete(id);
+          set((state) => ({
+            ingresses: state.ingresses.filter((i) => i.id !== id),
+          }));
+        } catch (error) {
+          console.error('Failed to delete ingress:', error);
+          toast.error('Failed to delete ingress');
+          throw error;
+        }
+      },
       
-      addChartVersion: (version) =>
-        set((state) => ({ chartVersions: [...state.chartVersions, version] })),
+      addChartVersion: async (version) => {
+        try {
+          const saved = await chartVersionDb.create(version);
+          set((state) => ({ chartVersions: [...state.chartVersions, saved] }));
+        } catch (error) {
+          console.error('Failed to create chart version:', error);
+          toast.error('Failed to create chart version');
+          throw error;
+        }
+      },
       
-      deleteChartVersion: (id) =>
-        set((state) => ({
-          chartVersions: state.chartVersions.filter((v) => v.id !== id),
-        })),
+      deleteChartVersion: async (id) => {
+        try {
+          await chartVersionDb.delete(id);
+          set((state) => ({
+            chartVersions: state.chartVersions.filter((v) => v.id !== id),
+          }));
+        } catch (error) {
+          console.error('Failed to delete chart version:', error);
+          toast.error('Failed to delete chart version');
+          throw error;
+        }
+      },
     }),
     {
       name: 'helm-designer-storage',

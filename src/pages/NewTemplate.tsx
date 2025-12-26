@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Box, Server, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { Template } from '@/types/helm';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function NewTemplate() {
@@ -54,34 +53,6 @@ export default function NewTemplate() {
 
     const templateId = crypto.randomUUID();
 
-    // Save to Supabase first
-    const { error } = await supabase.from('templates').insert({
-      id: templateId,
-      user_id: user.id,
-      name: formData.name,
-      description: formData.description || null,
-      shared_port: formData.sharedPort,
-      registry_url: formData.registryUrl,
-      registry_project: formData.registryProject || null,
-      registry_secret: {
-        name: 'registry-credentials',
-        type: 'registry',
-        server: formData.registryUrl,
-        username: formData.registryUsername,
-        email: formData.registryEmail,
-      },
-      enable_nginx_gateway: formData.enableNginxGateway,
-      enable_redis: formData.enableRedis,
-    });
-
-    if (error) {
-      console.error('Failed to save template to database:', error);
-      toast.error('Failed to create template');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Also save to local store for UI
     const template: Template = {
       id: templateId,
       name: formData.name,
@@ -102,10 +73,15 @@ export default function NewTemplate() {
       updatedAt: new Date().toISOString(),
     };
 
-    addTemplate(template);
-    setIsSubmitting(false);
-    toast.success('Template created successfully');
-    navigate(`/templates/${template.id}`);
+    try {
+      await addTemplate(template);
+      toast.success('Template created successfully');
+      navigate(`/templates/${template.id}`);
+    } catch (error) {
+      // Error is already handled in the store
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

@@ -204,7 +204,7 @@ export function ServicesTab({ template }: ServicesTabProps) {
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast.error('Service name is required');
       return;
@@ -215,45 +215,53 @@ export function ServicesTab({ template }: ServicesTabProps) {
     const configMapEnvSources = formData.configMapEnvSources.filter(c => c.configMapName);
     const secretEnvSources = formData.secretEnvSources.filter(s => s.secretName);
 
-    if (editingService) {
-      updateService(editingService.id, {
-        name: formData.name,
-        routes,
-        envVars,
-        healthCheckEnabled: formData.healthCheckEnabled,
-        livenessPath: formData.livenessPath,
-        readinessPath: formData.readinessPath,
-        configMapEnvSources,
-        secretEnvSources,
-        useStatefulSet: formData.useStatefulSet,
-      });
-      toast.success('Service updated');
-    } else {
-      const service: Service = {
-        id: crypto.randomUUID(),
-        templateId: template.id,
-        name: formData.name,
-        routes,
-        envVars,
-        healthCheckEnabled: formData.healthCheckEnabled,
-        livenessPath: formData.livenessPath,
-        readinessPath: formData.readinessPath,
-        configMapEnvSources,
-        secretEnvSources,
-        useStatefulSet: formData.useStatefulSet,
-      };
-      addService(service);
-      toast.success('Service added');
-    }
+    try {
+      if (editingService) {
+        await updateService(editingService.id, {
+          name: formData.name,
+          routes,
+          envVars,
+          healthCheckEnabled: formData.healthCheckEnabled,
+          livenessPath: formData.livenessPath,
+          readinessPath: formData.readinessPath,
+          configMapEnvSources,
+          secretEnvSources,
+          useStatefulSet: formData.useStatefulSet,
+        });
+        toast.success('Service updated');
+      } else {
+        const service: Service = {
+          id: crypto.randomUUID(),
+          templateId: template.id,
+          name: formData.name,
+          routes,
+          envVars,
+          healthCheckEnabled: formData.healthCheckEnabled,
+          livenessPath: formData.livenessPath,
+          readinessPath: formData.readinessPath,
+          configMapEnvSources,
+          secretEnvSources,
+          useStatefulSet: formData.useStatefulSet,
+        };
+        await addService(service);
+        toast.success('Service added');
+      }
 
-    setDialogOpen(false);
+      setDialogOpen(false);
+    } catch (error) {
+      // Error is already handled in the store
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteId) {
-      deleteService(deleteId);
-      toast.success('Service deleted');
-      setDeleteId(null);
+      try {
+        await deleteService(deleteId);
+        toast.success('Service deleted');
+        setDeleteId(null);
+      } catch (error) {
+        // Error is already handled in the store
+      }
     }
   };
 

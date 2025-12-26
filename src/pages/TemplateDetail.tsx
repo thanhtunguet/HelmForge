@@ -90,10 +90,14 @@ export default function TemplateDetail() {
     );
   }
 
-  const handleDelete = () => {
-    deleteTemplate(template.id);
-    toast.success('Template deleted');
-    navigate('/dashboard');
+  const handleDelete = async () => {
+    try {
+      await deleteTemplate(template.id);
+      toast.success('Template deleted');
+      navigate('/dashboard');
+    } catch (error) {
+      // Error is already handled in the store
+    }
   };
 
   return (

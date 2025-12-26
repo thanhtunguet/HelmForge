@@ -55,29 +55,33 @@ export function TemplateSettingsDialog({
     }
   }, [open, template]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast.error('Template name is required');
       return;
     }
 
-    updateTemplate(template.id, {
-      name: formData.name,
-      description: formData.description,
-      sharedPort: formData.sharedPort,
-      registryUrl: formData.registryUrl,
-      registryProject: formData.registryProject,
-      registrySecret: {
-        ...template.registrySecret,
-        server: formData.registryUrl,
-        username: formData.registryUsername,
-      },
-      enableNginxGateway: formData.enableNginxGateway,
-      enableRedis: formData.enableRedis,
-    });
+    try {
+      await updateTemplate(template.id, {
+        name: formData.name,
+        description: formData.description,
+        sharedPort: formData.sharedPort,
+        registryUrl: formData.registryUrl,
+        registryProject: formData.registryProject,
+        registrySecret: {
+          ...template.registrySecret,
+          server: formData.registryUrl,
+          username: formData.registryUsername,
+        },
+        enableNginxGateway: formData.enableNginxGateway,
+        enableRedis: formData.enableRedis,
+      });
 
-    toast.success('Template updated');
-    onOpenChange(false);
+      toast.success('Template updated');
+      onOpenChange(false);
+    } catch (error) {
+      // Error is already handled in the store
+    }
   };
 
   return (

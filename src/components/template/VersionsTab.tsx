@@ -50,11 +50,15 @@ export function VersionsTab({ template }: VersionsTabProps) {
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteId) {
-      deleteChartVersion(deleteId);
-      toast.success('Version deleted');
-      setDeleteId(null);
+      try {
+        await deleteChartVersion(deleteId);
+        toast.success('Version deleted');
+        setDeleteId(null);
+      } catch (error) {
+        // Error is already handled in the store
+      }
     }
   };
 

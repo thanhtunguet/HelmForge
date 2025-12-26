@@ -166,7 +166,7 @@ export function IngressesTab({ template }: IngressesTabProps) {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast.error('Ingress name is required');
       return;
@@ -174,27 +174,35 @@ export function IngressesTab({ template }: IngressesTabProps) {
 
     const { useAllRoutes, ...ingressData } = formData;
 
-    if (editingIngress) {
-      updateIngress(editingIngress.id, ingressData);
-      toast.success('Ingress updated');
-    } else {
-      const ingress: Ingress = {
-        id: crypto.randomUUID(),
-        templateId: template.id,
-        ...ingressData,
-      };
-      addIngress(ingress);
-      toast.success('Ingress added');
-    }
+    try {
+      if (editingIngress) {
+        await updateIngress(editingIngress.id, ingressData);
+        toast.success('Ingress updated');
+      } else {
+        const ingress: Ingress = {
+          id: crypto.randomUUID(),
+          templateId: template.id,
+          ...ingressData,
+        };
+        await addIngress(ingress);
+        toast.success('Ingress added');
+      }
 
-    setDialogOpen(false);
+      setDialogOpen(false);
+    } catch (error) {
+      // Error is already handled in the store
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteId) {
-      deleteIngress(deleteId);
-      toast.success('Ingress deleted');
-      setDeleteId(null);
+      try {
+        await deleteIngress(deleteId);
+        toast.success('Ingress deleted');
+        setDeleteId(null);
+      } catch (error) {
+        // Error is already handled in the store
+      }
     }
   };
 

@@ -78,40 +78,48 @@ export function SecretsTab({ template }: SecretsTabProps) {
     setTlsDialogOpen(true);
   };
 
-  const handleTlsSubmit = () => {
+  const handleTlsSubmit = async () => {
     if (!tlsFormData.name.trim()) {
       toast.error('Secret name is required');
       return;
     }
 
-    if (editingTlsSecret) {
-      updateTLSSecret(editingTlsSecret.id, {
-        name: tlsFormData.name,
-        cert: tlsFormData.cert || undefined,
-        key: tlsFormData.key || undefined,
-      });
-      toast.success('TLS secret updated');
-    } else {
-      const secret: TLSSecret = {
-        id: crypto.randomUUID(),
-        templateId: template.id,
-        name: tlsFormData.name,
-        type: 'tls',
-        cert: tlsFormData.cert || undefined,
-        key: tlsFormData.key || undefined,
-      };
-      addTLSSecret(secret);
-      toast.success('TLS secret added');
+    try {
+      if (editingTlsSecret) {
+        await updateTLSSecret(editingTlsSecret.id, {
+          name: tlsFormData.name,
+          cert: tlsFormData.cert || undefined,
+          key: tlsFormData.key || undefined,
+        });
+        toast.success('TLS secret updated');
+      } else {
+        const secret: TLSSecret = {
+          id: crypto.randomUUID(),
+          templateId: template.id,
+          name: tlsFormData.name,
+          type: 'tls',
+          cert: tlsFormData.cert || undefined,
+          key: tlsFormData.key || undefined,
+        };
+        await addTLSSecret(secret);
+        toast.success('TLS secret added');
+      }
+      
+      setTlsDialogOpen(false);
+    } catch (error) {
+      // Error is already handled in the store
     }
-    
-    setTlsDialogOpen(false);
   };
 
-  const handleTlsDelete = () => {
+  const handleTlsDelete = async () => {
     if (deleteTlsId) {
-      deleteTLSSecret(deleteTlsId);
-      toast.success('TLS secret deleted');
-      setDeleteTlsId(null);
+      try {
+        await deleteTLSSecret(deleteTlsId);
+        toast.success('TLS secret deleted');
+        setDeleteTlsId(null);
+      } catch (error) {
+        // Error is already handled in the store
+      }
     }
   };
 
@@ -152,7 +160,7 @@ export function SecretsTab({ template }: SecretsTabProps) {
     }));
   };
 
-  const handleOpaqueSubmit = () => {
+  const handleOpaqueSubmit = async () => {
     if (!opaqueFormData.name.trim()) {
       toast.error('Secret name is required');
       return;
@@ -160,32 +168,40 @@ export function SecretsTab({ template }: SecretsTabProps) {
 
     const keys = opaqueFormData.keys.filter(k => k.name.trim());
 
-    if (editingOpaqueSecret) {
-      updateOpaqueSecret(editingOpaqueSecret.id, {
-        name: opaqueFormData.name,
-        keys,
-      });
-      toast.success('Opaque secret updated');
-    } else {
-      const secret: OpaqueSecret = {
-        id: crypto.randomUUID(),
-        templateId: template.id,
-        name: opaqueFormData.name,
-        type: 'opaque',
-        keys,
-      };
-      addOpaqueSecret(secret);
-      toast.success('Opaque secret added');
+    try {
+      if (editingOpaqueSecret) {
+        await updateOpaqueSecret(editingOpaqueSecret.id, {
+          name: opaqueFormData.name,
+          keys,
+        });
+        toast.success('Opaque secret updated');
+      } else {
+        const secret: OpaqueSecret = {
+          id: crypto.randomUUID(),
+          templateId: template.id,
+          name: opaqueFormData.name,
+          type: 'opaque',
+          keys,
+        };
+        await addOpaqueSecret(secret);
+        toast.success('Opaque secret added');
+      }
+      
+      setOpaqueDialogOpen(false);
+    } catch (error) {
+      // Error is already handled in the store
     }
-    
-    setOpaqueDialogOpen(false);
   };
 
-  const handleOpaqueDelete = () => {
+  const handleOpaqueDelete = async () => {
     if (deleteOpaqueId) {
-      deleteOpaqueSecret(deleteOpaqueId);
-      toast.success('Opaque secret deleted');
-      setDeleteOpaqueId(null);
+      try {
+        await deleteOpaqueSecret(deleteOpaqueId);
+        toast.success('Opaque secret deleted');
+        setDeleteOpaqueId(null);
+      } catch (error) {
+        // Error is already handled in the store
+      }
     }
   };
 
