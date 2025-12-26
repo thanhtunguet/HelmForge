@@ -50,6 +50,23 @@ The application uses React Router v6's route objects (via `createBrowserRouter`)
 - Improves type safety
 - Supports data loading APIs
 
+### Handling SSG Generated Paths
+
+React-snap generates HTML files like `/docs/index.html` for the `/docs` route. To handle direct access to these paths, the router includes redirect routes:
+
+```typescript
+{
+  path: '/docs/index.html',
+  element: <Navigate to="/docs" replace />,
+}
+```
+
+This ensures:
+1. Users can access `/docs/index.html` directly (served as static HTML)
+2. When React hydrates, they're redirected to the clean URL `/docs`
+3. SEO crawlers see the pre-rendered content
+4. URLs remain clean and consistent
+
 ## Output
 
 When running `npm run build:ssg`, the build process:
