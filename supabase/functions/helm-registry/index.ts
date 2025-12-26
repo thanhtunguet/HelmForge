@@ -719,7 +719,7 @@ generated: "${new Date().toISOString()}"
     console.log("Action path:", actionPath);
 
     if (actionPath === "index.yaml" || actionPath === "") {
-      // Return index.yaml
+      // Return index.yaml for this specific template only
       const chartName = template.name.toLowerCase().replace(/\s+/g, "-");
       const baseUrl = `${supabaseUrl}/functions/v1/helm-registry/${templateId}`;
 
