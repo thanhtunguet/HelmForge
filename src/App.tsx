@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import NewTemplate from './pages/NewTemplate';
 import TemplateDetail from './pages/TemplateDetail';
 import NewVersion from './pages/NewVersion';
+import VersionDetail from './pages/VersionDetail';
 import ServiceAccounts from './pages/ServiceAccounts';
 import NotFound from './pages/NotFound';
 
@@ -60,6 +61,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <NewVersion />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/templates/:templateId/versions/:versionId"
+              element={
+                <ProtectedRoute>
+                  <VersionDetail />
                 </ProtectedRoute>
               }
             />

@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Download, Trash2, Check, X, ArrowUpCircle } from 'lucide-react';
+import { Plus, Download, Trash2, Check, X, ArrowUpCircle, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useState } from 'react';
@@ -114,7 +114,7 @@ export function VersionsTab({ template }: VersionsTabProps) {
                 <TableHead>Nginx</TableHead>
                 <TableHead>Redis</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="w-[160px]">Actions</TableHead>
+                <TableHead className="w-[200px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -163,6 +163,16 @@ export function VersionsTab({ template }: VersionsTabProps) {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Link to={`/templates/${template.id}/versions/${version.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="View version details"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
                       <Button
                         variant="ghost"
                         size="icon"

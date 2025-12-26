@@ -1,9 +1,15 @@
-import { Link } from 'react-router-dom';
-import { useHelmStore } from '@/lib/store';
-import { MainLayout } from '@/components/layout/MainLayout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Link } from "react-router-dom";
+import { useHelmStore } from "@/lib/store";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   Box,
@@ -13,8 +19,8 @@ import {
   ArrowRight,
   Layers,
   Download,
-} from 'lucide-react';
-import { format } from 'date-fns';
+} from "lucide-react";
+import { format } from "date-fns";
 
 export default function Dashboard() {
   const templates = useHelmStore((state) => state.templates);
@@ -23,7 +29,10 @@ export default function Dashboard() {
   const ingresses = useHelmStore((state) => state.ingresses);
 
   const recentVersions = chartVersions
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
     .slice(0, 5);
 
   return (
@@ -148,7 +157,7 @@ export default function Dashboard() {
                               {template.name}
                             </CardTitle>
                             <CardDescription className="mt-1 line-clamp-2">
-                              {template.description || 'No description'}
+                              {template.description || "No description"}
                             </CardDescription>
                           </div>
                           <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1" />
@@ -156,7 +165,10 @@ export default function Dashboard() {
                       </CardHeader>
                       <CardContent>
                         <div className="flex flex-wrap gap-2 mb-4">
-                          <Badge variant="secondary" className="font-mono text-xs">
+                          <Badge
+                            variant="secondary"
+                            className="font-mono text-xs"
+                          >
                             Port: {template.sharedPort}
                           </Badge>
                           {template.enableNginxGateway && (
@@ -177,7 +189,7 @@ export default function Dashboard() {
                         </div>
                         <div className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          {format(new Date(template.updatedAt), 'MMM d, yyyy')}
+                          {format(new Date(template.updatedAt), "MMM d, yyyy")}
                         </div>
                       </CardContent>
                     </Card>
@@ -215,12 +227,14 @@ export default function Dashboard() {
                             <p className="text-sm text-muted-foreground">
                               {format(
                                 new Date(version.createdAt),
-                                'MMM d, yyyy HH:mm'
+                                "MMM d, yyyy HH:mm"
                               )}
                             </p>
                           </div>
                         </div>
-                        <Link to={`/templates/${version.templateId}?tab=versions`}>
+                        <Link
+                          to={`/templates/${version.templateId}/versions/${version.id}`}
+                        >
                           <Button variant="ghost" size="sm">
                             View
                           </Button>
