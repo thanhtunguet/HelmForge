@@ -178,6 +178,7 @@ interface HelmValues {
   configMaps: Record<string, Record<string, string>>;
   ingress: Record<string, {
     hosts: string[];
+    rules: Array<{ path: string; serviceName: string }>;
     tlsEnabled: boolean;
     tlsSecretName: string | null;
   }>;
@@ -227,6 +228,7 @@ function generateValuesYaml(template: TemplateWithRelations, version: ChartVersi
   template.ingresses.forEach((ing) => {
     values.ingress[ing.name] = {
       hosts: version.values.ingressHosts?.[ing.name] || [],
+      rules: ing.rules || [],
       tlsEnabled: ing.tls_enabled,
       tlsSecretName: ing.tls_secret_name,
     };
@@ -485,11 +487,6 @@ spec:
 
 // Generate Ingress YAML
 function generateIngressYaml(ingressName: string, ingress: Ingress): string {
-  const backendService =
-    ingress.mode === 'nginx-gateway'
-      ? '{{ .Release.Name }}-nginx-gateway'
-      : '{{ .Release.Name }}-{{ $rule.serviceName }}';
-
   return `apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -497,27 +494,48 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
 spec:
-  {{- if .Values.ingress.${ingressName}.tlsEnabled }}
+  {{- $ingressValues := index .Values.ingress "${ingressName}" }}
+  {{- if $ingressValues.tlsEnabled }}
   tls:
     - hosts:
-        {{- range .Values.ingress.${ingressName}.hosts }}
+        {{- range $ingressValues.hosts }}
         - {{ . }}
         {{- end }}
       secretName: {{ .Release.Name }}-${ingress.tls_secret_name || 'tls-secret'}
   {{- end }}
   rules:
-    {{- range .Values.ingress.${ingressName}.hosts }}
-    - host: {{ . }}
+    {{- range $host := $ingressValues.hosts }}
+    - host: {{ $host }}
       http:
         paths:
-          {{- range $rule := $.Values.ingress.${ingressName}.rules }}
+          {{- if eq "${ingress.mode}" "nginx-gateway" }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-nginx-gateway
+                port:
+                  number: {{ $.Values.global.sharedPort }}
+          {{- else }}
+          {{- if $ingressValues.rules }}
+          {{- range $rule := $ingressValues.rules }}
           - path: {{ $rule.path }}
             pathType: Prefix
             backend:
               service:
-                name: ${backendService}
+                name: {{ $.Release.Name }}-{{ $rule.serviceName }}
                 port:
                   number: {{ $.Values.global.sharedPort }}
+          {{- end }}
+          {{- else }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-nginx-gateway
+                port:
+                  number: {{ $.Values.global.sharedPort }}
+          {{- end }}
           {{- end }}
     {{- end }}
 `;
