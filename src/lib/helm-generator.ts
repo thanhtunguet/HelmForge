@@ -30,7 +30,6 @@ interface HelmValues {
   configMaps: Record<string, Record<string, string>>;
   ingress: Record<string, {
     hosts: string[];
-    rules: Array<{ path: string; serviceName: string }>;
     tlsEnabled: boolean;
     tlsSecretName?: string | null;
   }>;
@@ -79,7 +78,6 @@ export function generateValuesYaml(template: TemplateWithRelations, version: Cha
   template.ingresses.forEach((ing) => {
     values.ingress[ing.name] = {
       hosts: version.values.ingressHosts[ing.name] || [],
-      rules: ing.rules || [],
       tlsEnabled: ing.tlsEnabled,
       tlsSecretName: ing.tlsSecretName,
     };
@@ -88,7 +86,16 @@ export function generateValuesYaml(template: TemplateWithRelations, version: Cha
   return formatYaml(values);
 }
 
-function formatYaml(obj: Record<string, unknown> | unknown[], indent = 0): string {
+type JsonValue = 
+  | string 
+  | number 
+  | boolean 
+  | null 
+  | JsonValue[] 
+  | { [key: string]: JsonValue | unknown }
+  | object;
+
+function formatYaml(obj: JsonValue | unknown[], indent = 0): string {
   const spaces = '  '.repeat(indent);
   let result = '';
 
@@ -97,7 +104,7 @@ function formatYaml(obj: Record<string, unknown> | unknown[], indent = 0): strin
     obj.forEach((item) => {
       if (item !== null && item !== undefined) {
         if (typeof item === 'object' && !Array.isArray(item)) {
-          result += `${spaces}  -\n${formatYaml(item as Record<string, unknown>, indent + 2)}`;
+          result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
         } else if (Array.isArray(item)) {
           result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
         } else {
@@ -109,26 +116,28 @@ function formatYaml(obj: Record<string, unknown> | unknown[], indent = 0): strin
   }
 
   // Handle objects
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === null || value === undefined) continue;
+  if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === null || value === undefined) continue;
 
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      result += `${spaces}${key}:\n${formatYaml(value as Record<string, unknown>, indent + 1)}`;
-    } else if (Array.isArray(value)) {
-      result += `${spaces}${key}:\n`;
-      value.forEach((item) => {
-        if (item !== null && item !== undefined) {
-          if (typeof item === 'object' && !Array.isArray(item)) {
-            result += `${spaces}  -\n${formatYaml(item as Record<string, unknown>, indent + 2)}`;
-          } else if (Array.isArray(item)) {
-            result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
-          } else {
-            result += `${spaces}  - ${item}\n`;
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        result += `${spaces}${key}:\n${formatYaml(value, indent + 1)}`;
+      } else if (Array.isArray(value)) {
+        result += `${spaces}${key}:\n`;
+        value.forEach((item) => {
+          if (item !== null && item !== undefined) {
+            if (typeof item === 'object' && !Array.isArray(item)) {
+              result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
+            } else if (Array.isArray(item)) {
+              result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
+            } else {
+              result += `${spaces}  - ${item}\n`;
+            }
           }
-        }
-      });
-    } else {
-      result += `${spaces}${key}: ${typeof value === 'string' && value.includes(':') ? `"${value}"` : value}\n`;
+        });
+      } else {
+        result += `${spaces}${key}: ${typeof value === 'string' && value.includes(':') ? `"${value}"` : value}\n`;
+      }
     }
   }
 
@@ -160,13 +169,12 @@ spec:
         - name: {{ .Release.Name }}-registry-secret
       containers:
         - name: ${serviceName}
-          image: "{{ .Values.global.registry.url }}/{{ .Values.global.registry.project }}/${serviceName}:{{ index .Values.services "${serviceName}" "imageTag" }}"
+          image: "{{ .Values.global.registry.url }}/{{ .Values.global.registry.project }}/${serviceName}:{{ .Values.services.${serviceName}.imageTag }}"
           ports:
             - containerPort: {{ .Values.global.sharedPort }}
-          {{- $serviceValues := index .Values.services "${serviceName}" }}
-          {{- if $serviceValues.env }}
+          {{- if .Values.services.${serviceName}.env }}
           env:
-            {{- range $key, $value := $serviceValues.env }}
+            {{- range $key, $value := .Values.services.${serviceName}.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
@@ -381,6 +389,11 @@ export function generateIngressYaml(ingressName: string, template: TemplateWithR
   const ingress = template.ingresses.find((i) => i.name === ingressName);
   if (!ingress) return '';
 
+  const backendService =
+    ingress.mode === 'nginx-gateway'
+      ? '{{ .Release.Name }}-nginx-gateway'
+      : '{{ .Release.Name }}-{{ $rule.serviceName }}';
+
   return `apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -388,48 +401,27 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: nginx
 spec:
-  {{- $ingressValues := index .Values.ingress "${ingressName}" }}
-  {{- if $ingressValues.tlsEnabled }}
+  {{- if .Values.ingress.${ingressName}.tlsEnabled }}
   tls:
     - hosts:
-        {{- range $ingressValues.hosts }}
+        {{- range .Values.ingress.${ingressName}.hosts }}
         - {{ . }}
         {{- end }}
-      secretName: {{ $.Release.Name }}-${ingress.tlsSecretName || 'tls-secret'}
+      secretName: {{ .Release.Name }}-${ingress.tlsSecretName || 'tls-secret'}
   {{- end }}
   rules:
-    {{- range $host := $ingressValues.hosts }}
-    - host: {{ $host }}
+    {{- range .Values.ingress.${ingressName}.hosts }}
+    - host: {{ . }}
       http:
         paths:
-          {{- if eq "${ingress.mode}" "nginx-gateway" }}
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ $.Release.Name }}-nginx-gateway
-                port:
-                  number: {{ $.Values.global.sharedPort }}
-          {{- else }}
-          {{- if $ingressValues.rules }}
-          {{- range $rule := $ingressValues.rules }}
+          {{- range $rule := $.Values.ingress.${ingressName}.rules }}
           - path: {{ $rule.path }}
             pathType: Prefix
             backend:
               service:
-                name: {{ $.Release.Name }}-{{ $rule.serviceName }}
+                name: ${backendService}
                 port:
                   number: {{ $.Values.global.sharedPort }}
-          {{- end }}
-          {{- else }}
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ $.Release.Name }}-nginx-gateway
-                port:
-                  number: {{ $.Values.global.sharedPort }}
-          {{- end }}
           {{- end }}
     {{- end }}
 `;
