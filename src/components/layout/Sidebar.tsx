@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
@@ -12,6 +13,7 @@ import {
   User,
   BookOpen,
   Key,
+  Lock,
 } from 'lucide-react';
 import { useHelmStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
@@ -23,12 +25,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ChangePasswordDialog } from '@/components/auth/ChangePasswordDialog';
 import { toast } from 'sonner';
 
 export function Sidebar() {
   const location = useLocation();
   const templates = useHelmStore((state) => state.templates);
   const { user, signOut } = useAuth();
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -147,6 +151,10 @@ export function Sidebar() {
                 <User className="mr-2 h-4 w-4" />
                 Profile (coming soon)
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+                <Lock className="mr-2 h-4 w-4" />
+                Change password
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -164,6 +172,7 @@ export function Sidebar() {
           </div>
         </div>
       </div>
+      <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </aside>
   );
 }
