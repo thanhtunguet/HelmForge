@@ -1,17 +1,17 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { MainLayout } from "@/components/layout/MainLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -28,7 +28,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,16 +38,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useHelmStore } from "@/lib/store";
+} from '@/components/ui/alert-dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useHelmStore } from '@/lib/store';
 import {
   Plus,
   Key,
@@ -59,8 +59,8 @@ import {
   RefreshCw,
   Shield,
   User,
-} from "lucide-react";
-import { format } from "date-fns";
+} from 'lucide-react';
+import { format } from 'date-fns';
 
 interface ServiceAccount {
   id: string;
@@ -95,10 +95,10 @@ export default function ServiceAccounts() {
   const [newBasicAuth, setNewBasicAuth] = useState<{ username: string; password: string } | null>(null);
 
   // Form state
-  const [formName, setFormName] = useState("");
-  const [formDescription, setFormDescription] = useState("");
+  const [formName, setFormName] = useState('');
+  const [formDescription, setFormDescription] = useState('');
   const [formAuthType, setFormAuthType] = useState<'bearer' | 'basic'>('bearer');
-  const [formUsername, setFormUsername] = useState("");
+  const [formUsername, setFormUsername] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -109,12 +109,12 @@ export default function ServiceAccounts() {
   async function fetchServiceAccounts() {
     setLoading(true);
     const { data, error } = await supabase
-      .from("service_accounts")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .from('service_accounts')
+      .select('*')
+      .order('created_at', { ascending: false });
 
     if (error) {
-      toast.error("Failed to load service accounts");
+      toast.error('Failed to load service accounts');
       console.error(error);
     } else {
       setServiceAccounts((data || []).map(sa => ({
@@ -127,9 +127,9 @@ export default function ServiceAccounts() {
 
   async function fetchTemplateAccess(serviceAccountId: string) {
     const { data, error } = await supabase
-      .from("service_account_template_access")
-      .select("template_id")
-      .eq("service_account_id", serviceAccountId);
+      .from('service_account_template_access')
+      .select('template_id')
+      .eq('service_account_id', serviceAccountId);
 
     if (error) {
       console.error(error);
@@ -139,8 +139,8 @@ export default function ServiceAccounts() {
   }
 
   function generateApiKey(): string {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
     for (let i = 0; i < 48; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -148,8 +148,8 @@ export default function ServiceAccounts() {
   }
 
   function generatePassword(): string {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-    let result = "";
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    let result = '';
     for (let i = 0; i < 24; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -168,12 +168,12 @@ export default function ServiceAccounts() {
 
   async function createServiceAccount() {
     if (!formName.trim()) {
-      toast.error("Name is required");
+      toast.error('Name is required');
       return;
     }
 
     if (formAuthType === 'basic' && !formUsername.trim()) {
-      toast.error("Username is required for basic authentication");
+      toast.error('Username is required for basic authentication');
       return;
     }
 
@@ -194,19 +194,19 @@ export default function ServiceAccounts() {
         api_key_prefix: apiKeyPrefix,
       };
 
-      const { error } = await supabase.from("service_accounts").insert(insertData).select().single();
+      const { error } = await supabase.from('service_accounts').insert(insertData).select().single();
 
       if (error) {
-        toast.error("Failed to create service account");
+        toast.error('Failed to create service account');
         console.error(error);
       } else {
         setNewApiKey(apiKey);
-        setFormName("");
-        setFormDescription("");
+        setFormName('');
+        setFormDescription('');
         setFormAuthType('bearer');
-        setFormUsername("");
+        setFormUsername('');
         fetchServiceAccounts();
-        toast.success("Service account created");
+        toast.success('Service account created');
       }
     } else {
       // Basic auth
@@ -220,34 +220,34 @@ export default function ServiceAccounts() {
         api_key_prefix: 'basic',
       };
 
-      const { error } = await supabase.from("service_accounts").insert(insertData).select().single();
+      const { error } = await supabase.from('service_accounts').insert(insertData).select().single();
 
       if (error) {
-        toast.error("Failed to create service account");
+        toast.error('Failed to create service account');
         console.error(error);
       } else {
         setNewBasicAuth({ username: formUsername.trim(), password });
-        setFormName("");
-        setFormDescription("");
+        setFormName('');
+        setFormDescription('');
         setFormAuthType('bearer');
-        setFormUsername("");
+        setFormUsername('');
         fetchServiceAccounts();
-        toast.success("Service account created");
+        toast.success('Service account created');
       }
     }
   }
 
   async function toggleAccountStatus(account: ServiceAccount) {
     const { error } = await supabase
-      .from("service_accounts")
+      .from('service_accounts')
       .update({ is_active: !account.is_active })
-      .eq("id", account.id);
+      .eq('id', account.id);
 
     if (error) {
-      toast.error("Failed to update status");
+      toast.error('Failed to update status');
     } else {
       fetchServiceAccounts();
-      toast.success(account.is_active ? "Account disabled" : "Account enabled");
+      toast.success(account.is_active ? 'Account disabled' : 'Account enabled');
     }
   }
 
@@ -255,15 +255,15 @@ export default function ServiceAccounts() {
     if (!deleteAccount) return;
 
     const { error } = await supabase
-      .from("service_accounts")
+      .from('service_accounts')
       .delete()
-      .eq("id", deleteAccount.id);
+      .eq('id', deleteAccount.id);
 
     if (error) {
-      toast.error("Failed to delete service account");
+      toast.error('Failed to delete service account');
     } else {
       fetchServiceAccounts();
-      toast.success("Service account deleted");
+      toast.success('Service account deleted');
     }
     setDeleteAccount(null);
   }
@@ -280,13 +280,13 @@ export default function ServiceAccounts() {
 
     // Delete existing access
     await supabase
-      .from("service_account_template_access")
+      .from('service_account_template_access')
       .delete()
-      .eq("service_account_id", selectedAccount.id);
+      .eq('service_account_id', selectedAccount.id);
 
     // Insert new access
     if (selectedTemplateAccess.length > 0) {
-      const { error } = await supabase.from("service_account_template_access").insert(
+      const { error } = await supabase.from('service_account_template_access').insert(
         selectedTemplateAccess.map((templateId) => ({
           service_account_id: selectedAccount.id,
           template_id: templateId,
@@ -294,20 +294,20 @@ export default function ServiceAccounts() {
       );
 
       if (error) {
-        toast.error("Failed to update template access");
+        toast.error('Failed to update template access');
         console.error(error);
         return;
       }
     }
 
-    toast.success("Template access updated");
+    toast.success('Template access updated');
     setIsManageAccessOpen(false);
     setSelectedAccount(null);
   }
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard");
+    toast.success('Copied to clipboard');
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -351,7 +351,7 @@ export default function ServiceAccounts() {
                       <Label>API Key</Label>
                       <div className="flex gap-2">
                         <Input
-                          type={showApiKey ? "text" : "password"}
+                          type={showApiKey ? 'text' : 'password'}
                           value={newApiKey}
                           readOnly
                           className="font-mono text-sm"
@@ -412,7 +412,7 @@ export default function ServiceAccounts() {
                       <Label>Password</Label>
                       <div className="flex gap-2">
                         <Input
-                          type={showPassword ? "text" : "password"}
+                          type={showPassword ? 'text' : 'password'}
                           value={newBasicAuth.password}
                           readOnly
                           className="font-mono text-sm"
@@ -558,24 +558,24 @@ export default function ServiceAccounts() {
             </div>
             <div className="text-sm text-muted-foreground space-y-1">
               <p>
-                <strong>Index endpoint:</strong>{" "}
+                <strong>Index endpoint:</strong>{' '}
                 <code className="bg-muted px-1 rounded">
                   {`{base-url}/{templateId}/index.yaml`}
                 </code>
               </p>
               <p>
-                <strong>Chart download:</strong>{" "}
+                <strong>Chart download:</strong>{' '}
                 <code className="bg-muted px-1 rounded">
                   {`{base-url}/{templateId}/charts/{chartName}-{version}.tgz`}
                 </code>
               </p>
               <div className="pt-2 space-y-1">
                 <p><strong>Authentication options:</strong></p>
-                <p className="pl-4">• <strong>Bearer Token:</strong> Pass API key in{" "}
-                  <code className="bg-muted px-1 rounded">X-API-Key</code> header or{" "}
+                <p className="pl-4">• <strong>Bearer Token:</strong> Pass API key in{' '}
+                  <code className="bg-muted px-1 rounded">X-API-Key</code> header or{' '}
                   <code className="bg-muted px-1 rounded">Authorization: Bearer &lt;key&gt;</code>
                 </p>
-                <p className="pl-4">• <strong>Basic Auth:</strong> Use{" "}
+                <p className="pl-4">• <strong>Basic Auth:</strong> Use{' '}
                   <code className="bg-muted px-1 rounded">Authorization: Basic &lt;base64(username:password)&gt;</code>
                 </p>
               </div>
@@ -648,18 +648,18 @@ export default function ServiceAccounts() {
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant={account.is_active ? "default" : "secondary"}
+                          variant={account.is_active ? 'default' : 'secondary'}
                         >
-                          {account.is_active ? "Active" : "Disabled"}
+                          {account.is_active ? 'Active' : 'Disabled'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         {account.last_used_at
-                          ? format(new Date(account.last_used_at), "MMM d, yyyy HH:mm")
-                          : "Never"}
+                          ? format(new Date(account.last_used_at), 'MMM d, yyyy HH:mm')
+                          : 'Never'}
                       </TableCell>
                       <TableCell>
-                        {format(new Date(account.created_at), "MMM d, yyyy")}
+                        {format(new Date(account.created_at), 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
