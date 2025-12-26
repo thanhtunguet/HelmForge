@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import {
   Template,
   Service,
@@ -8,10 +9,37 @@ import {
   Ingress,
   ChartVersion,
   TemplateWithRelations,
+  Route,
+  EnvVarSchema,
+  ConfigMapEnvSource,
+  SecretEnvSource,
+  ConfigMapKey,
+  OpaqueSecretKey,
+  IngressRule,
+  RegistrySecret,
+  ChartVersionValues,
 } from '@/types/helm';
 
+// Database row types
+type DbTemplateRow = Database['public']['Tables']['templates']['Row'];
+type DbServiceRow = Database['public']['Tables']['services']['Row'];
+type DbConfigMapRow = Database['public']['Tables']['config_maps']['Row'];
+type DbTLSSecretRow = Database['public']['Tables']['tls_secrets']['Row'];
+type DbOpaqueSecretRow = Database['public']['Tables']['opaque_secrets']['Row'];
+type DbIngressRow = Database['public']['Tables']['ingresses']['Row'];
+type DbChartVersionRow = Database['public']['Tables']['chart_versions']['Row'];
+
+// Database insert types
+type DbTemplateInsert = Database['public']['Tables']['templates']['Insert'];
+type DbServiceInsert = Database['public']['Tables']['services']['Insert'];
+type DbConfigMapInsert = Database['public']['Tables']['config_maps']['Insert'];
+type DbTLSSecretInsert = Database['public']['Tables']['tls_secrets']['Insert'];
+type DbOpaqueSecretInsert = Database['public']['Tables']['opaque_secrets']['Insert'];
+type DbIngressInsert = Database['public']['Tables']['ingresses']['Insert'];
+type DbChartVersionInsert = Database['public']['Tables']['chart_versions']['Insert'];
+
 // Helper to convert database template to app template
-function dbTemplateToApp(dbTemplate: any): Template {
+function dbTemplateToApp(dbTemplate: DbTemplateRow): Template {
   return {
     id: dbTemplate.id,
     name: dbTemplate.name,
@@ -19,7 +47,7 @@ function dbTemplateToApp(dbTemplate: any): Template {
     sharedPort: dbTemplate.shared_port,
     registryUrl: dbTemplate.registry_url || '',
     registryProject: dbTemplate.registry_project || '',
-    registrySecret: (dbTemplate.registry_secret as any) || {
+    registrySecret: (dbTemplate.registry_secret as unknown as RegistrySecret | null) || {
       name: 'registry-credentials',
       type: 'registry',
       server: dbTemplate.registry_url || '',
@@ -34,73 +62,73 @@ function dbTemplateToApp(dbTemplate: any): Template {
 }
 
 // Helper to convert app template to database format
-function appTemplateToDb(template: Template | Partial<Template>): any {
+function appTemplateToDb(template: Template | Partial<Template>): Omit<DbTemplateInsert, 'id' | 'user_id' | 'created_at' | 'updated_at'> {
   return {
-    name: template.name,
+    name: template.name!,
     description: template.description || null,
     shared_port: template.sharedPort,
     registry_url: template.registryUrl || null,
     registry_project: template.registryProject || null,
-    registry_secret: template.registrySecret || null,
+    registry_secret: template.registrySecret as unknown as Database['public']['Tables']['templates']['Row']['registry_secret'] || null,
     enable_nginx_gateway: template.enableNginxGateway,
     enable_redis: template.enableRedis,
   };
 }
 
 // Helper to convert database service to app service
-function dbServiceToApp(dbService: any): Service {
+function dbServiceToApp(dbService: DbServiceRow): Service {
   return {
     id: dbService.id,
     templateId: dbService.template_id,
     name: dbService.name,
-    routes: (dbService.routes as any[]) || [],
-    envVars: (dbService.env_vars as any[]) || [],
+    routes: (dbService.routes as unknown as Route[]) || [],
+    envVars: (dbService.env_vars as unknown as EnvVarSchema[]) || [],
     healthCheckEnabled: dbService.health_check_enabled,
     livenessPath: dbService.liveness_path || '/health',
     readinessPath: dbService.readiness_path || '/ready',
-    configMapEnvSources: (dbService.config_map_env_sources as any[]) || [],
-    secretEnvSources: (dbService.secret_env_sources as any[]) || [],
+    configMapEnvSources: (dbService.config_map_env_sources as unknown as ConfigMapEnvSource[]) || [],
+    secretEnvSources: (dbService.secret_env_sources as unknown as SecretEnvSource[]) || [],
     useStatefulSet: dbService.use_stateful_set,
   };
 }
 
 // Helper to convert app service to database format
-function appServiceToDb(service: Service | Partial<Service>): any {
+function appServiceToDb(service: Service | Partial<Service>): Omit<DbServiceInsert, 'id' | 'created_at'> {
   return {
-    template_id: service.templateId,
-    name: service.name,
-    routes: service.routes || [],
-    env_vars: service.envVars || [],
+    template_id: service.templateId!,
+    name: service.name!,
+    routes: (service.routes || []) as unknown as Database['public']['Tables']['services']['Row']['routes'],
+    env_vars: (service.envVars || []) as unknown as Database['public']['Tables']['services']['Row']['env_vars'],
     health_check_enabled: service.healthCheckEnabled ?? false,
     liveness_path: service.livenessPath || '/health',
     readiness_path: service.readinessPath || '/ready',
-    config_map_env_sources: service.configMapEnvSources || [],
-    secret_env_sources: service.secretEnvSources || [],
+    config_map_env_sources: (service.configMapEnvSources || []) as unknown as Database['public']['Tables']['services']['Row']['config_map_env_sources'],
+    secret_env_sources: (service.secretEnvSources || []) as unknown as Database['public']['Tables']['services']['Row']['secret_env_sources'],
     use_stateful_set: service.useStatefulSet ?? false,
   };
 }
 
 // Helper to convert database configmap to app configmap
-function dbConfigMapToApp(dbConfigMap: any): ConfigMap {
+function dbConfigMapToApp(dbConfigMap: DbConfigMapRow): ConfigMap {
   return {
     id: dbConfigMap.id,
     templateId: dbConfigMap.template_id,
     name: dbConfigMap.name,
-    keys: (dbConfigMap.keys as any[]) || [],
+    keys: (dbConfigMap.keys as unknown as ConfigMapKey[]) || [],
   };
 }
 
 // Helper to convert app configmap to database format
-function appConfigMapToDb(configMap: ConfigMap | Partial<ConfigMap>): any {
+function appConfigMapToDb(configMap: ConfigMap | Partial<ConfigMap>): Omit<DbConfigMapInsert, 'id' | 'created_at'> {
   return {
-    template_id: configMap.templateId,
-    name: configMap.name,
-    keys: configMap.keys || [],
+    template_id: configMap.templateId!,
+    name: configMap.name!,
+    keys: (configMap.keys || []) as unknown as Database['public']['Tables']['config_maps']['Row']['keys'],
   };
 }
 
 // Helper to convert database TLS secret to app TLS secret
-function dbTLSSecretToApp(dbSecret: any): TLSSecret {
+function dbTLSSecretToApp(dbSecret: DbTLSSecretRow): TLSSecret {
   return {
     id: dbSecret.id,
     templateId: dbSecret.template_id,
@@ -110,41 +138,41 @@ function dbTLSSecretToApp(dbSecret: any): TLSSecret {
 }
 
 // Helper to convert app TLS secret to database format
-function appTLSSecretToDb(secret: TLSSecret | Partial<TLSSecret>): any {
+function appTLSSecretToDb(secret: TLSSecret | Partial<TLSSecret>): Omit<DbTLSSecretInsert, 'id' | 'created_at'> {
   return {
-    template_id: secret.templateId,
-    name: secret.name,
+    template_id: secret.templateId!,
+    name: secret.name!,
   };
 }
 
 // Helper to convert database opaque secret to app opaque secret
-function dbOpaqueSecretToApp(dbSecret: any): OpaqueSecret {
+function dbOpaqueSecretToApp(dbSecret: DbOpaqueSecretRow): OpaqueSecret {
   return {
     id: dbSecret.id,
     templateId: dbSecret.template_id,
     name: dbSecret.name,
     type: 'opaque',
-    keys: (dbSecret.keys as any[]) || [],
+    keys: (dbSecret.keys as unknown as OpaqueSecretKey[]) || [],
   };
 }
 
 // Helper to convert app opaque secret to database format
-function appOpaqueSecretToDb(secret: OpaqueSecret | Partial<OpaqueSecret>): any {
+function appOpaqueSecretToDb(secret: OpaqueSecret | Partial<OpaqueSecret>): Omit<DbOpaqueSecretInsert, 'id' | 'created_at'> {
   return {
-    template_id: secret.templateId,
-    name: secret.name,
-    keys: secret.keys || [],
+    template_id: secret.templateId!,
+    name: secret.name!,
+    keys: (secret.keys || []) as unknown as Database['public']['Tables']['opaque_secrets']['Row']['keys'],
   };
 }
 
 // Helper to convert database ingress to app ingress
-function dbIngressToApp(dbIngress: any): Ingress {
+function dbIngressToApp(dbIngress: DbIngressRow): Ingress {
   return {
     id: dbIngress.id,
     templateId: dbIngress.template_id,
     name: dbIngress.name,
     mode: (dbIngress.mode as 'nginx-gateway' | 'direct-services') || 'nginx-gateway',
-    rules: (dbIngress.rules as any[]) || [],
+    rules: (dbIngress.rules as unknown as IngressRule[]) || [],
     defaultHost: dbIngress.default_host || undefined,
     tlsEnabled: dbIngress.tls_enabled,
     tlsSecretName: dbIngress.tls_secret_name || undefined,
@@ -152,12 +180,12 @@ function dbIngressToApp(dbIngress: any): Ingress {
 }
 
 // Helper to convert app ingress to database format
-function appIngressToDb(ingress: Ingress | Partial<Ingress>): any {
+function appIngressToDb(ingress: Ingress | Partial<Ingress>): Omit<DbIngressInsert, 'id' | 'created_at'> {
   return {
-    template_id: ingress.templateId,
-    name: ingress.name,
-    mode: ingress.mode || 'nginx-gateway',
-    rules: ingress.rules || [],
+    template_id: ingress.templateId!,
+    name: ingress.name!,
+    mode: (ingress.mode || 'nginx-gateway') as Database['public']['Tables']['ingresses']['Row']['mode'],
+    rules: (ingress.rules || []) as unknown as Database['public']['Tables']['ingresses']['Row']['rules'],
     default_host: ingress.defaultHost || null,
     tls_enabled: ingress.tlsEnabled ?? false,
     tls_secret_name: ingress.tlsSecretName || null,
@@ -165,24 +193,36 @@ function appIngressToDb(ingress: Ingress | Partial<Ingress>): any {
 }
 
 // Helper to convert database chart version to app chart version
-function dbChartVersionToApp(dbVersion: any): ChartVersion {
+function dbChartVersionToApp(dbVersion: DbChartVersionRow): ChartVersion {
   return {
     id: dbVersion.id,
     templateId: dbVersion.template_id,
     versionName: dbVersion.version_name,
     appVersion: dbVersion.app_version || undefined,
-    values: (dbVersion.values as any) || {},
+    values: (dbVersion.values as unknown as ChartVersionValues) || {
+      imageTags: {},
+      envValues: {},
+      configMapValues: {},
+      tlsSecretValues: {},
+      ingressHosts: {},
+    },
     createdAt: dbVersion.created_at,
   };
 }
 
 // Helper to convert app chart version to database format
-function appChartVersionToDb(version: ChartVersion | Partial<ChartVersion>): any {
+function appChartVersionToDb(version: ChartVersion | Partial<ChartVersion>): Omit<DbChartVersionInsert, 'id' | 'created_at'> {
   return {
-    template_id: version.templateId,
-    version_name: version.versionName,
+    template_id: version.templateId!,
+    version_name: version.versionName!,
     app_version: version.appVersion || null,
-    values: version.values || {},
+    values: (version.values || {
+      imageTags: {},
+      envValues: {},
+      configMapValues: {},
+      tlsSecretValues: {},
+      ingressHosts: {},
+    }) as unknown as Database['public']['Tables']['chart_versions']['Row']['values'],
   };
 }
 
@@ -569,4 +609,5 @@ export async function loadAllData(): Promise<{
     chartVersions,
   };
 }
+
 

@@ -115,7 +115,7 @@ export default function NewVersion() {
     });
 
     setValues(initialValues);
-  }, [template?.id, initialValuesFromState]); // Re-initialize when template changes or initial values are provided
+  }, [template, initialValuesFromState]); // Re-initialize when template changes or initial values are provided
 
   if (!template) {
     return (
