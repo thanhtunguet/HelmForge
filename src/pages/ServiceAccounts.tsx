@@ -48,6 +48,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useHelmStore } from '@/lib/store';
+import { TablesInsert } from '@/integrations/supabase/types';
 import {
   Plus,
   Key,
@@ -177,19 +178,20 @@ export default function ServiceAccounts() {
       return;
     }
 
-    let insertData: any = {
-      user_id: user?.id,
-      name: formName.trim(),
-      description: formDescription.trim() || null,
-      auth_type: formAuthType,
-    };
+    if (!user?.id) {
+      toast.error('User not authenticated');
+      return;
+    }
 
     if (formAuthType === 'bearer') {
       const apiKey = generateApiKey();
       const apiKeyHash = await hashApiKey(apiKey);
       const apiKeyPrefix = apiKey.substring(0, 8);
-      insertData = {
-        ...insertData,
+      const insertData: TablesInsert<'service_accounts'> = {
+        user_id: user.id,
+        name: formName.trim(),
+        description: formDescription.trim() || null,
+        auth_type: formAuthType,
         api_key_hash: apiKeyHash,
         api_key_prefix: apiKeyPrefix,
       };
@@ -212,8 +214,11 @@ export default function ServiceAccounts() {
       // Basic auth
       const password = generatePassword();
       const passwordHash = await hashApiKey(password);
-      insertData = {
-        ...insertData,
+      const insertData: TablesInsert<'service_accounts'> = {
+        user_id: user.id,
+        name: formName.trim(),
+        description: formDescription.trim() || null,
+        auth_type: formAuthType,
         basic_username: formUsername.trim(),
         basic_password_hash: passwordHash,
         api_key_hash: '', // Required but not used for basic auth

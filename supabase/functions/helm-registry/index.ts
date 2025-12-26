@@ -7,21 +7,87 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface RegistrySecret {
+  username: string;
+  email?: string;
+}
+
+interface Route {
+  path: string;
+}
+
+interface Service {
+  id: string;
+  template_id: string;
+  name: string;
+  routes: Route[];
+  liveness_path: string | null;
+  readiness_path: string | null;
+  [key: string]: unknown;
+}
+
+interface ConfigMap {
+  id: string;
+  template_id: string;
+  name: string;
+  [key: string]: unknown;
+}
+
+interface TLSSecret {
+  id: string;
+  template_id: string;
+  name: string;
+  [key: string]: unknown;
+}
+
+interface OpaqueSecret {
+  id: string;
+  template_id: string;
+  name: string;
+  [key: string]: unknown;
+}
+
+interface IngressRule {
+  path: string;
+  serviceName: string;
+}
+
+interface Ingress {
+  id: string;
+  template_id: string;
+  name: string;
+  mode: 'nginx-gateway' | 'direct-services';
+  rules: IngressRule[];
+  tls_enabled: boolean;
+  tls_secret_name: string | null;
+  [key: string]: unknown;
+}
+
+interface ChartVersionValues {
+  imageTags?: Record<string, string>;
+  envValues?: Record<string, Record<string, string>>;
+  configMapValues?: Record<string, Record<string, string>>;
+  tlsSecretValues?: Record<string, { crt: string; key: string }>;
+  ingressHosts?: Record<string, string[]>;
+  enableNginxGateway?: boolean;
+  enableRedis?: boolean;
+}
+
 interface TemplateWithRelations {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   shared_port: number;
-  registry_url: string;
-  registry_project: string;
-  registry_secret: any;
+  registry_url: string | null;
+  registry_project: string | null;
+  registry_secret: RegistrySecret | null;
   enable_nginx_gateway: boolean;
   enable_redis: boolean;
-  services: any[];
-  config_maps: any[];
-  tls_secrets: any[];
-  opaque_secrets: any[];
-  ingresses: any[];
+  services: Service[];
+  config_maps: ConfigMap[];
+  tls_secrets: TLSSecret[];
+  opaque_secrets: OpaqueSecret[];
+  ingresses: Ingress[];
 }
 
 interface ChartVersion {
@@ -29,7 +95,7 @@ interface ChartVersion {
   template_id: string;
   version_name: string;
   app_version: string | null;
-  values: any;
+  values: ChartVersionValues;
   created_at: string;
 }
 
@@ -45,22 +111,43 @@ appVersion: "${version.app_version || '1.0.0'}"
 }
 
 // Format object to YAML
-function formatYaml(obj: any, indent = 0): string {
+function formatYaml(obj: Record<string, unknown> | unknown[], indent = 0): string {
   const spaces = '  '.repeat(indent);
   let result = '';
 
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    obj.forEach((item) => {
+      if (item !== null && item !== undefined) {
+        if (typeof item === 'object' && !Array.isArray(item)) {
+          result += `${spaces}  -\n${formatYaml(item as Record<string, unknown>, indent + 2)}`;
+        } else if (Array.isArray(item)) {
+          result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
+        } else {
+          result += `${spaces}  - ${item}\n`;
+        }
+      }
+    });
+    return result;
+  }
+
+  // Handle objects
   for (const [key, value] of Object.entries(obj)) {
     if (value === null || value === undefined) continue;
 
     if (typeof value === 'object' && !Array.isArray(value)) {
-      result += `${spaces}${key}:\n${formatYaml(value, indent + 1)}`;
+      result += `${spaces}${key}:\n${formatYaml(value as Record<string, unknown>, indent + 1)}`;
     } else if (Array.isArray(value)) {
       result += `${spaces}${key}:\n`;
       value.forEach((item) => {
-        if (typeof item === 'object') {
-          result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
-        } else {
-          result += `${spaces}  - ${item}\n`;
+        if (item !== null && item !== undefined) {
+          if (typeof item === 'object' && !Array.isArray(item)) {
+            result += `${spaces}  -\n${formatYaml(item as Record<string, unknown>, indent + 2)}`;
+          } else if (Array.isArray(item)) {
+            result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
+          } else {
+            result += `${spaces}  - ${item}\n`;
+          }
         }
       });
     } else {
@@ -71,9 +158,37 @@ function formatYaml(obj: any, indent = 0): string {
   return result;
 }
 
+interface HelmValues {
+  global: {
+    sharedPort: number;
+    registry: {
+      url: string | null;
+      project: string | null;
+    };
+  };
+  services: Record<string, {
+    imageTag: string;
+    env: Record<string, string>;
+    livenessPath: string | null;
+    readinessPath: string | null;
+  }>;
+  configMaps: Record<string, Record<string, string>>;
+  ingress: Record<string, {
+    hosts: string[];
+    tlsEnabled: boolean;
+    tlsSecretName: string | null;
+  }>;
+  nginx: {
+    enabled: boolean;
+  };
+  redis: {
+    enabled: boolean;
+  };
+}
+
 // Generate values.yaml content
 function generateValuesYaml(template: TemplateWithRelations, version: ChartVersion): string {
-  const values: Record<string, any> = {
+  const values: HelmValues = {
     global: {
       sharedPort: template.shared_port,
       registry: {
@@ -113,11 +228,11 @@ function generateValuesYaml(template: TemplateWithRelations, version: ChartVersi
     };
   });
 
-  return formatYaml(values);
+  return formatYaml(values as Record<string, unknown>);
 }
 
 // Generate Deployment YAML
-function generateDeploymentYaml(serviceName: string, service: any): string {
+function generateDeploymentYaml(serviceName: string, service: Service): string {
   return `apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -228,7 +343,7 @@ stringData:
 // Generate Nginx ConfigMap
 function generateNginxConfigMap(template: TemplateWithRelations): string {
   const allRoutes = template.services.flatMap((svc) =>
-    (svc.routes || []).map((r: any) => ({ path: r.path, serviceName: svc.name }))
+    (svc.routes || []).map((r: Route) => ({ path: r.path, serviceName: svc.name }))
   );
 
   const locationBlocks = allRoutes
@@ -364,7 +479,7 @@ spec:
 }
 
 // Generate Ingress YAML
-function generateIngressYaml(ingressName: string, ingress: any): string {
+function generateIngressYaml(ingressName: string, ingress: Ingress): string {
   const backendService =
     ingress.mode === 'nginx-gateway'
       ? '{{ .Release.Name }}-nginx-gateway'
@@ -606,11 +721,26 @@ generated: "${new Date().toISOString()}"
       const baseUrl = `${supabaseUrl}/functions/v1/helm-registry`;
       
       // Build entries grouped by chart name
-      const entriesMap: Record<string, any[]> = {};
+      interface ChartEntry {
+        apiVersion: string;
+        name: string;
+        version: string;
+        appVersion: string;
+        description: string | null;
+        type: string;
+        created: string;
+        urls: string[];
+      }
+      const entriesMap: Record<string, ChartEntry[]> = {};
+      
+      const typedVersions = (allVersions || []).map((v) => ({
+        ...v,
+        values: v.values as ChartVersionValues,
+      })) as ChartVersion[];
       
       for (const template of templates || []) {
         const chartName = template.name.toLowerCase().replace(/\s+/g, '-');
-        const templateVersions = (allVersions || []).filter((v: ChartVersion) => v.template_id === template.id);
+        const templateVersions = typedVersions.filter((v) => v.template_id === template.id);
         
         if (!entriesMap[chartName]) {
           entriesMap[chartName] = [];
@@ -705,14 +835,18 @@ generated: "${new Date().toISOString()}"
 
     const templateWithRelations: TemplateWithRelations = {
       ...template,
-      services: servicesRes.data || [],
-      config_maps: configMapsRes.data || [],
-      tls_secrets: tlsSecretsRes.data || [],
-      opaque_secrets: opaqueSecretsRes.data || [],
-      ingresses: ingressesRes.data || [],
+      registry_secret: template.registry_secret as RegistrySecret | null,
+      services: (servicesRes.data || []) as Service[],
+      config_maps: (configMapsRes.data || []) as ConfigMap[],
+      tls_secrets: (tlsSecretsRes.data || []) as TLSSecret[],
+      opaque_secrets: (opaqueSecretsRes.data || []) as OpaqueSecret[],
+      ingresses: (ingressesRes.data || []) as Ingress[],
     };
 
-    const versions = versionsRes.data || [];
+    const versions = (versionsRes.data || []).map((v) => ({
+      ...v,
+      values: v.values as ChartVersionValues,
+    })) as ChartVersion[];
 
     // Determine the action based on path
     const actionPath = pathParts.slice(templateIdIndex + 1).join('/');

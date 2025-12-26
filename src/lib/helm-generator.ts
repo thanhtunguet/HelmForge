@@ -12,8 +12,36 @@ appVersion: "${version.appVersion || '1.0.0'}"
 `;
 }
 
+interface HelmValues {
+  global: {
+    sharedPort: number;
+    registry: {
+      url: string | null;
+      project: string | null;
+    };
+  };
+  services: Record<string, {
+    imageTag: string;
+    env: Record<string, string>;
+    livenessPath: string;
+    readinessPath: string;
+  }>;
+  configMaps: Record<string, Record<string, string>>;
+  ingress: Record<string, {
+    hosts: string[];
+    tlsEnabled: boolean;
+    tlsSecretName?: string | null;
+  }>;
+  nginx: {
+    enabled: boolean;
+  };
+  redis: {
+    enabled: boolean;
+  };
+}
+
 export function generateValuesYaml(template: TemplateWithRelations, version: ChartVersion): string {
-  const values: Record<string, any> = {
+  const values: HelmValues = {
     global: {
       sharedPort: template.sharedPort,
       registry: {
@@ -56,22 +84,43 @@ export function generateValuesYaml(template: TemplateWithRelations, version: Cha
   return formatYaml(values);
 }
 
-function formatYaml(obj: any, indent = 0): string {
+function formatYaml(obj: Record<string, unknown> | unknown[], indent = 0): string {
   const spaces = '  '.repeat(indent);
   let result = '';
 
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    obj.forEach((item) => {
+      if (item !== null && item !== undefined) {
+        if (typeof item === 'object' && !Array.isArray(item)) {
+          result += `${spaces}  -\n${formatYaml(item as Record<string, unknown>, indent + 2)}`;
+        } else if (Array.isArray(item)) {
+          result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
+        } else {
+          result += `${spaces}  - ${item}\n`;
+        }
+      }
+    });
+    return result;
+  }
+
+  // Handle objects
   for (const [key, value] of Object.entries(obj)) {
     if (value === null || value === undefined) continue;
 
     if (typeof value === 'object' && !Array.isArray(value)) {
-      result += `${spaces}${key}:\n${formatYaml(value, indent + 1)}`;
+      result += `${spaces}${key}:\n${formatYaml(value as Record<string, unknown>, indent + 1)}`;
     } else if (Array.isArray(value)) {
       result += `${spaces}${key}:\n`;
       value.forEach((item) => {
-        if (typeof item === 'object') {
-          result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
-        } else {
-          result += `${spaces}  - ${item}\n`;
+        if (item !== null && item !== undefined) {
+          if (typeof item === 'object' && !Array.isArray(item)) {
+            result += `${spaces}  -\n${formatYaml(item as Record<string, unknown>, indent + 2)}`;
+          } else if (Array.isArray(item)) {
+            result += `${spaces}  -\n${formatYaml(item, indent + 2)}`;
+          } else {
+            result += `${spaces}  - ${item}\n`;
+          }
         }
       });
     } else {
