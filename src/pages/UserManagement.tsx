@@ -146,10 +146,13 @@ export default function UserManagement() {
     }
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    
     const response = await fetch(`${supabaseUrl}/functions/v1/user-admin/${action}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
+        'apikey': supabaseAnonKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -158,7 +161,8 @@ export default function UserManagement() {
     const result = await response.json();
     
     if (!response.ok) {
-      throw new Error(result.error || 'Operation failed');
+      console.error('Edge function error:', result);
+      throw new Error(result.error || result.details || 'Operation failed');
     }
 
     return result;
