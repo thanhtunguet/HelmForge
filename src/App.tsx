@@ -16,6 +16,7 @@ import VersionDetail from './pages/VersionDetail';
 import ServiceAccounts from './pages/ServiceAccounts';
 import EditConfigMap from './pages/EditConfigMap';
 import EditSecret from './pages/EditSecret';
+import EditIngress from './pages/EditIngress';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -100,6 +101,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <EditSecret />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/templates/:templateId/ingresses/:ingressId/edit',
+    element: (
+      <ProtectedRoute>
+        <EditIngress />
       </ProtectedRoute>
     ),
   },

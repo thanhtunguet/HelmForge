@@ -1,29 +1,13 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useHelmStore } from '@/lib/store';
-import { TemplateWithRelations, Ingress, IngressRule } from '@/types/helm';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -31,33 +15,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, Lock, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Lock, Network } from 'lucide-react';
 import { toast } from 'sonner';
+import { Ingress, IngressRule } from '@/types/helm';
 
-interface IngressesTabProps {
-  template: TemplateWithRelations;
-}
-
-export function IngressesTab({ template }: IngressesTabProps) {
+export default function EditIngress() {
+  const { templateId, ingressId } = useParams();
   const navigate = useNavigate();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [editingIngress, setEditingIngress] = useState<Ingress | null>(null);
-  
-  const addIngress = useHelmStore((state) => state.addIngress);
+  const ingresses = useHelmStore((state) => state.ingresses);
+  const templates = useHelmStore((state) => state.templates);
+  const services = useHelmStore((state) => state.services);
+  const tlsSecrets = useHelmStore((state) => state.tlsSecrets);
   const updateIngress = useHelmStore((state) => state.updateIngress);
-  const deleteIngress = useHelmStore((state) => state.deleteIngress);
-
+  
+  const ingress = ingresses.find((i) => i.id === ingressId && i.templateId === templateId);
+  const template = templates.find((t) => t.id === templateId);
+  
+  // Get services for this template
+  const templateServices = services.filter((s) => s.templateId === templateId);
+  
+  // Compute all routes from all services
+  const allRoutes: IngressRule[] = templateServices.flatMap(service =>
+    service.routes.map(route => ({
+      path: route.path,
+      serviceName: service.name,
+    }))
+  );
+  
   const [formData, setFormData] = useState({
     name: '',
     mode: 'nginx-gateway' as 'nginx-gateway' | 'direct-services',
@@ -74,31 +58,43 @@ export function IngressesTab({ template }: IngressesTabProps) {
     customPath: '' 
   });
 
-  // Compute all routes from all services
-  const allRoutes: IngressRule[] = template.services.flatMap(service =>
-    service.routes.map(route => ({
-      path: route.path,
-      serviceName: service.name,
-    }))
-  );
+  useEffect(() => {
+    if (ingress && template) {
+      // Check if current rules match all routes to set useAllRoutes toggle
+      const allRoutesSet = new Set(allRoutes.map(r => `${r.path}:${r.serviceName}`));
+      const currentRulesSet = new Set(ingress.rules.map(r => `${r.path}:${r.serviceName}`));
+      const isUsingAllRoutes = allRoutes.length > 0 && 
+        allRoutes.every(r => currentRulesSet.has(`${r.path}:${r.serviceName}`)) &&
+        ingress.rules.length === allRoutes.length;
 
-  const openNew = () => {
-    setEditingIngress(null);
-    setFormData({
-      name: '',
-      mode: 'nginx-gateway',
-      defaultHost: '',
-      tlsEnabled: false,
-      tlsSecretName: '',
-      rules: [],
-      useAllRoutes: false,
-    });
-    setDialogOpen(true);
-  };
+      setFormData({
+        name: ingress.name,
+        mode: ingress.mode,
+        defaultHost: ingress.defaultHost || '',
+        tlsEnabled: ingress.tlsEnabled,
+        tlsSecretName: ingress.tlsSecretName || '',
+        rules: [...ingress.rules],
+        useAllRoutes: isUsingAllRoutes,
+      });
+    }
+  }, [ingress, template, allRoutes]);
 
-  const openEdit = (ingress: Ingress) => {
-    navigate(`/templates/${template.id}/ingresses/${ingress.id}/edit`);
-  };
+  if (!ingress || !template) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center py-20">
+          <h2 className="text-xl font-semibold">Ingress not found</h2>
+          <p className="text-muted-foreground mb-4">
+            The requested Ingress does not exist.
+          </p>
+          <Button variant="outline" onClick={() => navigate(`/templates/${templateId}?tab=ingresses`)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Template
+          </Button>
+        </div>
+      </MainLayout>
+    );
+  }
 
   const handleUseAllRoutesChange = (checked: boolean) => {
     if (checked) {
@@ -116,7 +112,7 @@ export function IngressesTab({ template }: IngressesTabProps) {
     }
   };
 
-  const selectedService = template.services.find(s => s.name === ruleForm.serviceName);
+  const selectedService = templateServices.find(s => s.name === ruleForm.serviceName);
   const isCustomRoute = ruleForm.selectedRoute === '__custom__';
 
   const addRule = () => {
@@ -160,160 +156,51 @@ export function IngressesTab({ template }: IngressesTabProps) {
     const { useAllRoutes, ...ingressData } = formData;
 
     try {
-      if (editingIngress) {
-        await updateIngress(editingIngress.id, ingressData);
-        toast.success('Ingress updated');
-      } else {
-        const ingress: Ingress = {
-          id: crypto.randomUUID(),
-          templateId: template.id,
-          ...ingressData,
-        };
-        await addIngress(ingress);
-        toast.success('Ingress added');
-      }
-
-      setDialogOpen(false);
+      await updateIngress(ingress.id, ingressData);
+      toast.success('Ingress updated');
+      navigate(`/templates/${templateId}?tab=ingresses`);
     } catch (error) {
       // Error is already handled in the store
     }
   };
 
-  const handleDelete = async () => {
-    if (deleteId) {
-      try {
-        await deleteIngress(deleteId);
-        toast.success('Ingress deleted');
-        setDeleteId(null);
-      } catch (error) {
-        // Error is already handled in the store
-      }
-    }
-  };
+  // Get TLS secrets for this template
+  const templateTlsSecrets = tlsSecrets.filter((s) => s.templateId === templateId);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Ingresses</h3>
-          <p className="text-sm text-muted-foreground">
-            Define ingress rules for external access
-          </p>
+    <MainLayout>
+      <div className="animate-fade-in max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <Button
+            variant="ghost"
+            className="mb-4 -ml-4"
+            onClick={() => navigate(`/templates/${templateId}?tab=ingresses`)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Template
+          </Button>
+          
+          <div className="flex items-center gap-3">
+            <Network className="h-6 w-6 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Edit Ingress</h1>
+              <p className="mt-1 text-muted-foreground">
+                Configure ingress rules for external traffic
+              </p>
+            </div>
+          </div>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Ingress
-        </Button>
-      </div>
 
-      {template.ingresses.length === 0 ? (
-        <Card className="border-dashed border-2 bg-transparent">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">No ingresses defined yet</p>
-            <Button variant="outline" onClick={openNew}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add your first ingress
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Mode</TableHead>
-                <TableHead>TLS</TableHead>
-                <TableHead>Rules</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {template.ingresses.map((ingress) => (
-                <TableRow 
-                  key={ingress.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => openEdit(ingress)}
-                >
-                  <TableCell className="font-mono font-medium">{ingress.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {ingress.mode === 'nginx-gateway' ? 'Nginx Gateway' : 'Direct'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {ingress.tlsEnabled ? (
-                      <div className="flex items-center gap-1">
-                        <Lock className="h-3.5 w-3.5 text-success" />
-                        {ingress.tlsSecretName && (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {ingress.tlsSecretName}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <X className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {ingress.rules.length > 0 ? (
-                        ingress.rules.slice(0, 2).map((rule, i) => (
-                          <Badge key={i} variant="secondary" className="font-mono text-xs">
-                            {rule.path}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-xs text-muted-foreground">No rules</span>
-                      )}
-                      {ingress.rules.length > 2 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{ingress.rules.length - 2}
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(ingress)}
-                        title="Edit Ingress"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => setDeleteId(ingress.id)}
-                        title="Delete Ingress"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingIngress ? 'Edit Ingress' : 'Add Ingress'}
-            </DialogTitle>
-            <DialogDescription>
+        {/* Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Ingress Details</CardTitle>
+            <CardDescription>
               Configure ingress rules for external traffic
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Ingress Name *</Label>
@@ -322,8 +209,7 @@ export function IngressesTab({ template }: IngressesTabProps) {
                   placeholder="main-ingress"
                   value={formData.name}
                   onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                    setFormData({ ...formData, name: e.target.value })}
                   className="font-mono"
                 />
               </div>
@@ -388,7 +274,7 @@ export function IngressesTab({ template }: IngressesTabProps) {
                       <SelectValue placeholder="Select TLS secret" />
                     </SelectTrigger>
                     <SelectContent>
-                      {template.tlsSecrets.map((secret) => (
+                      {templateTlsSecrets.map((secret) => (
                         <SelectItem key={secret.id} value={secret.name}>
                           {secret.name}
                         </SelectItem>
@@ -442,7 +328,7 @@ export function IngressesTab({ template }: IngressesTabProps) {
                           <SelectValue placeholder="Select Service" />
                         </SelectTrigger>
                         <SelectContent>
-                          {template.services.map((svc) => (
+                          {templateServices.map((svc) => (
                             <SelectItem key={svc.id} value={svc.name}>
                               {svc.name}
                             </SelectItem>
@@ -507,38 +393,22 @@ export function IngressesTab({ template }: IngressesTabProps) {
                 </>
               )}
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit}>
-              {editingIngress ? 'Update' : 'Add'} Ingress
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Ingress</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this ingress? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDelete}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/templates/${templateId}?tab=ingresses`)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit}>
+                Update Ingress
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </MainLayout>
   );
 }
+
