@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useHelmStore } from '@/lib/store';
 import { TemplateWithRelations, TLSSecret, OpaqueSecret, OpaqueSecretKey } from '@/types/helm';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,7 @@ interface SecretsTabProps {
 }
 
 export function SecretsTab({ template }: SecretsTabProps) {
+  const navigate = useNavigate();
   // TLS Secret state
   const [tlsDialogOpen, setTlsDialogOpen] = useState(false);
   const [deleteTlsId, setDeleteTlsId] = useState<string | null>(null);
@@ -69,13 +71,7 @@ export function SecretsTab({ template }: SecretsTabProps) {
   };
 
   const openEditTls = (secret: TLSSecret) => {
-    setEditingTlsSecret(secret);
-    setTlsFormData({
-      name: secret.name,
-      cert: secret.cert || '',
-      key: secret.key || ''
-    });
-    setTlsDialogOpen(true);
+    navigate(`/templates/${template.id}/secrets/${secret.id}/edit`);
   };
 
   const handleTlsSubmit = async () => {
@@ -131,12 +127,7 @@ export function SecretsTab({ template }: SecretsTabProps) {
   };
 
   const openEditOpaque = (secret: OpaqueSecret) => {
-    setEditingOpaqueSecret(secret);
-    setOpaqueFormData({
-      name: secret.name,
-      keys: [...secret.keys],
-    });
-    setOpaqueDialogOpen(true);
+    navigate(`/templates/${template.id}/secrets/${secret.id}/edit`);
   };
 
   const addOpaqueKey = () => {
@@ -267,7 +258,11 @@ export function SecretsTab({ template }: SecretsTabProps) {
               </TableHeader>
               <TableBody>
                 {template.tlsSecrets.map((secret) => (
-                  <TableRow key={secret.id}>
+                  <TableRow 
+                    key={secret.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => openEditTls(secret)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Lock className="h-4 w-4 text-success" />
@@ -291,13 +286,14 @@ export function SecretsTab({ template }: SecretsTabProps) {
                         <X className="h-4 w-4 text-muted-foreground" />
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => openEditTls(secret)}
+                          title="Edit TLS Secret"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
@@ -306,6 +302,7 @@ export function SecretsTab({ template }: SecretsTabProps) {
                           size="icon"
                           className="h-8 w-8 text-destructive"
                           onClick={() => setDeleteTlsId(secret.id)}
+                          title="Delete TLS Secret"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -357,7 +354,11 @@ export function SecretsTab({ template }: SecretsTabProps) {
               </TableHeader>
               <TableBody>
                 {template.opaqueSecrets.map((secret) => (
-                  <TableRow key={secret.id}>
+                  <TableRow 
+                    key={secret.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => openEditOpaque(secret)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <FileKey className="h-4 w-4 text-warning" />
@@ -385,13 +386,14 @@ export function SecretsTab({ template }: SecretsTabProps) {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => openEditOpaque(secret)}
+                          title="Edit Opaque Secret"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
@@ -400,6 +402,7 @@ export function SecretsTab({ template }: SecretsTabProps) {
                           size="icon"
                           className="h-8 w-8 text-destructive"
                           onClick={() => setDeleteOpaqueId(secret.id)}
+                          title="Delete Opaque Secret"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

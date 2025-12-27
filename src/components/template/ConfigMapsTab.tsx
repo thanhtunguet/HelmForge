@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useHelmStore } from '@/lib/store';
 import { TemplateWithRelations, ConfigMap, ConfigMapKey } from '@/types/helm';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ interface ConfigMapsTabProps {
 }
 
 export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editingConfigMap, setEditingConfigMap] = useState<ConfigMap | null>(null);
@@ -60,12 +62,7 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
   };
 
   const openEdit = (configMap: ConfigMap) => {
-    setEditingConfigMap(configMap);
-    setFormData({
-      name: configMap.name,
-      keys: [...configMap.keys],
-    });
-    setDialogOpen(true);
+    navigate(`/templates/${template.id}/configmaps/${configMap.id}/edit`);
   };
 
   const addKey = () => {
@@ -167,7 +164,11 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
             </TableHeader>
             <TableBody>
               {template.configMaps.map((cm) => (
-                <TableRow key={cm.id}>
+                <TableRow 
+                  key={cm.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => openEdit(cm)}
+                >
                   <TableCell className="font-mono font-medium">{cm.name}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
@@ -187,13 +188,14 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => openEdit(cm)}
+                        title="Edit ConfigMap"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -202,6 +204,7 @@ export function ConfigMapsTab({ template }: ConfigMapsTabProps) {
                         size="icon"
                         className="h-8 w-8 text-destructive"
                         onClick={() => setDeleteId(cm.id)}
+                        title="Delete ConfigMap"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

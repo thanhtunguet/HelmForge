@@ -14,6 +14,8 @@ import TemplateDetail from './pages/TemplateDetail';
 import NewVersion from './pages/NewVersion';
 import VersionDetail from './pages/VersionDetail';
 import ServiceAccounts from './pages/ServiceAccounts';
+import EditConfigMap from './pages/EditConfigMap';
+import EditSecret from './pages/EditSecret';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -82,6 +84,22 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <VersionDetail />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/templates/:templateId/configmaps/:configMapId/edit',
+    element: (
+      <ProtectedRoute>
+        <EditConfigMap />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/templates/:templateId/secrets/:secretId/edit',
+    element: (
+      <ProtectedRoute>
+        <EditSecret />
       </ProtectedRoute>
     ),
   },
