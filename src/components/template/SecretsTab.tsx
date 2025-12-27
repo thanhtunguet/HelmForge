@@ -142,14 +142,14 @@ export function SecretsTab({ template }: SecretsTabProps) {
   const addOpaqueKey = () => {
     setOpaqueFormData(prev => ({
       ...prev,
-      keys: [...prev.keys, { name: '' }]
+      keys: [...prev.keys, { name: '', defaultValue: '' }]
     }));
   };
 
-  const updateOpaqueKey = (index: number, name: string) => {
+  const updateOpaqueKey = (index: number, field: 'name' | 'defaultValue', value: string) => {
     setOpaqueFormData(prev => ({
       ...prev,
-      keys: prev.keys.map((k, i) => i === index ? { ...k, name } : k)
+      keys: prev.keys.map((k, i) => i === index ? { ...k, [field]: value } : k)
     }));
   };
 
@@ -510,10 +510,16 @@ export function SecretsTab({ template }: SecretsTabProps) {
                   {opaqueFormData.keys.map((key, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <Input
-                        placeholder="DATABASE_PASSWORD"
+                        placeholder="Key name"
                         value={key.name}
-                        onChange={(e) => updateOpaqueKey(index, e.target.value)}
-                        className="font-mono"
+                        onChange={(e) => updateOpaqueKey(index, 'name', e.target.value)}
+                        className="font-mono flex-1"
+                      />
+                      <Input
+                        placeholder="Default value (optional)"
+                        value={key.defaultValue || ''}
+                        onChange={(e) => updateOpaqueKey(index, 'defaultValue', e.target.value)}
+                        className="font-mono flex-1"
                       />
                       <Button
                         type="button"

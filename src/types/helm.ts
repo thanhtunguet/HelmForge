@@ -65,6 +65,7 @@ export interface TLSSecret {
 export interface OpaqueSecretKey {
   name: string;
   description?: string;
+  defaultValue?: string;
 }
 
 export interface OpaqueSecret {
