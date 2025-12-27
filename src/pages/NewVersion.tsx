@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useHelmStore } from '@/lib/store';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -69,17 +69,34 @@ export default function NewVersion() {
     enableRedis: undefined,
   });
 
+  // Track if we've initialized to prevent infinite loops
+  const hasInitialized = useRef(false);
+  const initializedTemplateId = useRef<string | undefined>(undefined);
+
   // Initialize values with either upgrade values or default values from template
   useEffect(() => {
     if (!template) return;
+    
+    // Reset initialization if template changed
+    if (initializedTemplateId.current !== template.id) {
+      hasInitialized.current = false;
+      initializedTemplateId.current = template.id;
+    }
+    
+    if (hasInitialized.current) return;
 
+    // Check for initial values from location state (from upgrade button)
+    // Read directly from location.state to avoid dependency issues
+    const initialValuesFromLocation = location.state?.initialValues as ChartVersionValues | undefined;
+    
     // If we have initial values from upgrade, use them
-    if (initialValuesFromState) {
+    if (initialValuesFromLocation) {
       setValues({
-        ...initialValuesFromState,
+        ...initialValuesFromLocation,
         // Don't copy registryPassword for security
         registryPassword: undefined,
       });
+      hasInitialized.current = true;
       return;
     }
 
@@ -115,7 +132,8 @@ export default function NewVersion() {
     });
 
     setValues(initialValues);
-  }, [template, initialValuesFromState]); // Re-initialize when template changes or initial values are provided
+    hasInitialized.current = true;
+  }, [template]); // Only depend on template, not initialValuesFromState
 
   if (!template) {
     return (
