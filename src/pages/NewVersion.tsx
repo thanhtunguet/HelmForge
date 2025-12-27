@@ -524,7 +524,7 @@ export default function NewVersion() {
                   <div key={ing.id} className="space-y-3">
                     <h4 className="font-medium text-sm flex items-center gap-2">
                       <Badge variant="secondary">{ing.name}</Badge>
-                      {ing.tlsEnabled && (
+                      {ing.tls && ing.tls.length > 0 && (
                         <Badge variant="outline" className="text-xs">
                           <Lock className="mr-1 h-3 w-3" />
                           TLS

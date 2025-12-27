@@ -70,8 +70,8 @@ interface UserProfile {
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
-  is_admin: boolean;
   banned_until: string | null;
+  is_admin?: boolean; // Computed from user_roles
 }
 
 type BanDuration = 'day' | 'week' | 'month' | 'permanent';
@@ -103,12 +103,12 @@ export default function UserManagement() {
       if (!user) return;
       
       const { data, error } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single();
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin');
 
-      if (error || !data?.is_admin) {
+      if (error || !data || data.length === 0) {
         toast.error('Admin privileges required');
         navigate('/dashboard');
         return;
@@ -123,17 +123,35 @@ export default function UserManagement() {
 
   async function fetchUsers() {
     setLoading(true);
-    const { data, error } = await supabase
+    
+    // Fetch profiles
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
+    if (profilesError) {
       toast.error('Failed to load users');
-      console.error(error);
-    } else {
-      setUsers(data || []);
+      console.error(profilesError);
+      setLoading(false);
+      return;
     }
+
+    // Fetch admin roles
+    const { data: adminRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin');
+
+    const adminUserIds = new Set(adminRoles?.map(r => r.user_id) || []);
+
+    // Merge admin status into profiles
+    const usersWithRoles = (profiles || []).map(profile => ({
+      ...profile,
+      is_admin: adminUserIds.has(profile.id),
+    }));
+
+    setUsers(usersWithRoles);
     setLoading(false);
   }
 
