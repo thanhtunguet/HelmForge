@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
+import { supabase } from '@/integrations/supabase/client';
 import {
   LayoutDashboard,
   Box,
@@ -14,6 +15,7 @@ import {
   BookOpen,
   Key,
   Lock,
+  Users,
 } from 'lucide-react';
 import { useHelmStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
@@ -33,6 +35,21 @@ export function Sidebar() {
   const templates = useHelmStore((state) => state.templates);
   const { user, signOut } = useAuth();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    async function checkAdmin() {
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single();
+        setIsAdmin(data?.is_admin || false);
+      }
+    }
+    checkAdmin();
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -44,6 +61,10 @@ export function Sidebar() {
     { path: '/templates/new', icon: Plus, label: 'New Template' },
     { path: '/service-accounts', icon: Key, label: 'Service Accounts' },
   ];
+
+  if (isAdmin) {
+    navItems.push({ path: '/users', icon: Users, label: 'User Management' });
+  }
 
   const userInitials = user?.email?.charAt(0).toUpperCase() || 'U';
 
