@@ -77,14 +77,14 @@ serve(async (req) => {
 
     console.log('User authenticated:', user.id);
 
-    // Check if user is admin
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single();
+    // Check if user is admin using user_roles table
+    const { data: userRoles } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin');
 
-    if (!profile?.is_admin) {
+    if (!userRoles || userRoles.length === 0) {
       return new Response(JSON.stringify({ error: 'Admin privileges required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -130,11 +130,12 @@ serve(async (req) => {
           });
         }
 
-        // Update profile with admin status
-        await supabaseAdmin
-          .from('profiles')
-          .update({ is_admin: isAdmin })
-          .eq('id', newUser.user.id);
+        // Add admin role if isAdmin is true
+        if (isAdmin) {
+          await supabaseAdmin
+            .from('user_roles')
+            .insert({ user_id: newUser.user.id, role: 'admin' });
+        }
 
         return new Response(JSON.stringify({ success: true, user: newUser.user }), {
           status: 200,

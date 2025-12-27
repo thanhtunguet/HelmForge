@@ -41,11 +41,11 @@ export function Sidebar() {
     async function checkAdmin() {
       if (user) {
         const { data } = await supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .single();
-        setIsAdmin(data?.is_admin || false);
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin');
+        setIsAdmin(data && data.length > 0);
       }
     }
     checkAdmin();
