@@ -19,6 +19,7 @@ import {
   Calendar,
   FileCode,
   LayoutList,
+  Play,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -26,6 +27,7 @@ import { downloadChart } from '@/lib/helm-generator';
 import { TemplateWithRelations } from '@/types/helm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { YamlViewMode } from '@/components/template/YamlViewMode';
+import { PlaygroundView } from '@/components/template/PlaygroundView';
 
 export default function VersionDetail() {
   const { templateId, versionId } = useParams();
@@ -135,6 +137,10 @@ export default function VersionDetail() {
             <TabsTrigger value="yaml-view" className="gap-2">
               <FileCode className="h-4 w-4" />
               YAML View
+            </TabsTrigger>
+            <TabsTrigger value="playground" className="gap-2">
+              <Play className="h-4 w-4" />
+              Playground
             </TabsTrigger>
           </TabsList>
 
@@ -492,6 +498,11 @@ export default function VersionDetail() {
           {/* YAML View Tab */}
           <TabsContent value="yaml-view">
             <YamlViewMode template={template} version={version} />
+          </TabsContent>
+
+          {/* Playground Tab */}
+          <TabsContent value="playground">
+            <PlaygroundView template={template} version={version} />
           </TabsContent>
         </Tabs>
       </div>

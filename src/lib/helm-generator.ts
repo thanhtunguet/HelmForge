@@ -637,3 +637,336 @@ export function generateChartFiles(
 
   return files;
 }
+
+/**
+ * Generate rendered YAML manifests for Kubernetes deployment
+ * This shows the actual YAML that would be applied to the cluster
+ */
+export function generateRenderedManifests(
+  template: TemplateWithRelations,
+  version: ChartVersion,
+  releaseName: string,
+  namespace: string
+): Array<{ name: string; content: string }> {
+  const files: Array<{ name: string; content: string }> = [];
+
+  // Generate rendered deployment and service for each service
+  template.services.forEach((service) => {
+    const imageTag = version.values.imageTags[service.name] || 'latest';
+    const envValues = version.values.envValues[service.name] || {};
+    
+    // Rendered Deployment
+    let deploymentEnv = '';
+    if (Object.keys(envValues).length > 0) {
+      deploymentEnv = '          env:\n';
+      Object.entries(envValues).forEach(([key, value]) => {
+        deploymentEnv += `            - name: ${key}\n              value: "${value}"\n`;
+      });
+    }
+
+    const deployment = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${service.name}
+  namespace: ${namespace}
+  labels:
+    app: ${service.name}
+    app.kubernetes.io/name: ${service.name}
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${service.name}
+  template:
+    metadata:
+      labels:
+        app: ${service.name}
+    spec:
+      imagePullSecrets:
+        - name: registry-secret
+      containers:
+        - name: ${service.name}
+          image: "${template.registryUrl}/${template.registryProject}/${service.name}:${imageTag}"
+          ports:
+            - containerPort: ${template.sharedPort}
+${deploymentEnv}          livenessProbe:
+            httpGet:
+              path: ${service.livenessPath}
+              port: ${template.sharedPort}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: ${service.readinessPath}
+              port: ${template.sharedPort}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+`;
+    files.push({ name: `deployment-${service.name}.yaml`, content: deployment });
+
+    // Rendered Service
+    const serviceYaml = `apiVersion: v1
+kind: Service
+metadata:
+  name: ${service.name}
+  namespace: ${namespace}
+  labels:
+    app: ${service.name}
+    app.kubernetes.io/name: ${service.name}
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: ${template.sharedPort}
+      targetPort: ${template.sharedPort}
+      protocol: TCP
+      name: http
+  selector:
+    app: ${service.name}
+`;
+    files.push({ name: `service-${service.name}.yaml`, content: serviceYaml });
+  });
+
+  // ConfigMaps
+  template.configMaps.forEach((cm) => {
+    const configMapValues = version.values.configMapValues[cm.name] || {};
+    let dataSection = '';
+    
+    Object.entries(configMapValues).forEach(([key, value]) => {
+      dataSection += `  ${key}: "${value}"\n`;
+    });
+
+    const configMap = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${cm.name}
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/name: ${cm.name}
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+data:
+${dataSection}`;
+    files.push({ name: `configmap-${cm.name}.yaml`, content: configMap });
+  });
+
+  // Registry Secret
+  const registrySecret = `apiVersion: v1
+kind: Secret
+metadata:
+  name: registry-secret
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: ${template.registryPassword ? btoa(JSON.stringify({
+    auths: {
+      [template.registryUrl || '']: {
+        username: 'default',
+        password: template.registryPassword,
+        auth: btoa(`default:${template.registryPassword}`),
+      },
+    },
+  })) : 'e30K'}
+`;
+  files.push({ name: 'secret-registry.yaml', content: registrySecret });
+
+  // TLS Secrets
+  template.tlsSecrets.forEach((secret) => {
+    const tlsValues = version.values.tlsSecretValues[secret.name] || { crt: '', key: '' };
+    const tlsSecret = `apiVersion: v1
+kind: Secret
+metadata:
+  name: ${secret.name}
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+type: kubernetes.io/tls
+data:
+  tls.crt: ${tlsValues.crt ? btoa(tlsValues.crt) : ''}
+  tls.key: ${tlsValues.key ? btoa(tlsValues.key) : ''}
+`;
+    files.push({ name: `secret-tls-${secret.name}.yaml`, content: tlsSecret });
+  });
+
+  // Nginx Gateway
+  if (version.values.enableNginxGateway ?? template.enableNginxGateway) {
+    // Nginx ConfigMap
+    let nginxConfig = 'events {}\nhttp {\n';
+    template.services.forEach((service) => {
+      nginxConfig += `  upstream ${service.name} {\n    server ${service.name}:${template.sharedPort};\n  }\n`;
+    });
+    nginxConfig += '  server {\n    listen 80;\n';
+    template.services.forEach((service) => {
+      nginxConfig += `    location /${service.name}/ {\n      proxy_pass http://${service.name}/;\n    }\n`;
+    });
+    nginxConfig += '  }\n}';
+
+    const nginxConfigMap = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-gateway-config
+  namespace: ${namespace}
+  labels:
+    app: nginx-gateway
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+data:
+  nginx.conf: |
+    ${nginxConfig.split('\n').join('\n    ')}
+`;
+    files.push({ name: 'configmap-nginx-gateway.yaml', content: nginxConfigMap });
+
+    // Nginx Deployment
+    const nginxDeployment = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-gateway
+  namespace: ${namespace}
+  labels:
+    app: nginx-gateway
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-gateway
+  template:
+    metadata:
+      labels:
+        app: nginx-gateway
+    spec:
+      containers:
+        - name: nginx
+          image: "nginx:1.27-alpine"
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+      volumes:
+        - name: config
+          configMap:
+            name: nginx-gateway-config
+`;
+    files.push({ name: 'deployment-nginx-gateway.yaml', content: nginxDeployment });
+
+    // Nginx Service
+    const nginxService = `apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-gateway
+  namespace: ${namespace}
+  labels:
+    app: nginx-gateway
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: nginx-gateway
+`;
+    files.push({ name: 'service-nginx-gateway.yaml', content: nginxService });
+  }
+
+  // Redis
+  if (version.values.enableRedis ?? template.enableRedis) {
+    const redisDeployment = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: ${namespace}
+  labels:
+    app: redis
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: "redis:7-alpine"
+          ports:
+            - containerPort: 6379
+`;
+    files.push({ name: 'deployment-redis.yaml', content: redisDeployment });
+
+    const redisService = `apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: ${namespace}
+  labels:
+    app: redis
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: redis
+`;
+    files.push({ name: 'service-redis.yaml', content: redisService });
+  }
+
+  // Ingresses
+  template.ingresses.forEach((ing) => {
+    let rulesSection = '';
+    ing.hosts.forEach((host) => {
+      rulesSection += `  - host: ${host.hostname}\n    http:\n      paths:\n`;
+      host.paths.forEach((path) => {
+        rulesSection += `        - path: ${path.path}\n          pathType: Prefix\n          backend:\n            service:\n              name: ${path.serviceName}\n              port:\n                number: ${template.sharedPort}\n`;
+      });
+    });
+
+    let tlsSection = '';
+    if (ing.tls && ing.tls.length > 0) {
+      tlsSection = 'tls:\n';
+      ing.tls.forEach((tls) => {
+        tlsSection += `  - secretName: ${tls.secretName}\n    hosts:\n`;
+        tls.hosts.forEach((host) => {
+          tlsSection += `      - ${host}\n`;
+        });
+      });
+    }
+
+    const ingress = `apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${ing.name}
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/instance: ${releaseName}
+    app.kubernetes.io/managed-by: Helm
+spec:
+${tlsSection}rules:
+${rulesSection}`;
+    files.push({ name: `ingress-${ing.name}.yaml`, content: ingress });
+  });
+
+  return files;
+}
