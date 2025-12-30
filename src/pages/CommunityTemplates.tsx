@@ -137,7 +137,7 @@ export default function CommunityTemplates() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredTemplates.map((template) => (
-              <Link key={template.id} to={`/templates/${template.id}`}>
+              <Link key={template.id} to={`/community/${template.id}`}>
                 <Card className="bg-card border-border hover:border-primary/50 transition-colors cursor-pointer h-full">
                   <CardHeader>
                     <div className="flex items-start justify-between">
