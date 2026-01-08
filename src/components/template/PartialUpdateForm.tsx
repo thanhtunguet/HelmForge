@@ -125,13 +125,13 @@ export function PartialUpdateForm({
             {selectedServices.map(service => (
               <div key={service.id} className="space-y-2">
                 <Label htmlFor={`service-${service.id}`} className="text-xs font-medium">
-                  {service.name}
+                  {service.name} - Image Tag
                 </Label>
                 <Input
                   id={`service-${service.id}`}
                   value={getCurrentImageTag(service.id)}
                   onChange={(e) => handleImageTagChange(service.id, e.target.value)}
-                  placeholder="e.g., myapp:v2.1.1"
+                  placeholder="e.g., v2.1.1, latest"
                   className="text-sm"
                 />
               </div>
