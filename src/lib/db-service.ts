@@ -64,8 +64,8 @@ function dbTemplateToApp(dbTemplate: DbTemplateRow): Template {
 }
 
 // Helper to convert app template to database format
-function appTemplateToDb(template: Template | Partial<Template>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
+function appTemplateToDb(template: Template | Partial<Template>): Partial<DbTemplateInsert> {
+  const result: Partial<DbTemplateInsert> = {};
   if (template.name !== undefined) result.name = template.name;
   if (template.description !== undefined) result.description = template.description || null;
   if (template.sharedPort !== undefined) result.shared_port = template.sharedPort;
@@ -298,16 +298,15 @@ export const templateDb = {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) throw new Error('User not authenticated');
 
-    const insertData = {
+    const insertData: DbTemplateInsert = {
       id: template.id,
       user_id: userData.user.id,
       ...appTemplateToDb(template),
     };
 
-     
     const { data, error } = await supabase
       .from('templates')
-      .insert(insertData as any)
+      .insert(insertData)
       .select()
       .single();
 
@@ -599,7 +598,7 @@ export const chartVersionDb = {
   },
 
   async create(version: ChartVersion): Promise<ChartVersion> {
-    const insertData = {
+    const insertData: DbChartVersionInsert = {
       id: version.id,
       template_id: version.templateId,
       version_name: version.versionName,
@@ -607,11 +606,9 @@ export const chartVersionDb = {
       release_notes: version.releaseNotes || null,
       values: version.values as unknown as Database['public']['Tables']['chart_versions']['Row']['values'],
     };
-    
-     
     const { data, error } = await supabase
       .from('chart_versions')
-      .insert(insertData as any)
+      .insert(insertData)
       .select()
       .single();
 
@@ -661,5 +658,4 @@ export async function loadAllData(): Promise<{
     chartVersions,
   };
 }
-
 

@@ -163,23 +163,19 @@ export default function NewVersion() {
   // Initialize values with either upgrade values or default values from template
   useEffect(() => {
     if (!template) return;
-    
+
     // Reset initialization if template changed
     if (initializedTemplateId.current !== template.id) {
       hasInitialized.current = false;
       initializedTemplateId.current = template.id;
     }
-    
+
     if (hasInitialized.current) return;
 
-    // Check for initial values from location state (from upgrade button)
-    // Read directly from location.state to avoid dependency issues
-    const initialValuesFromLocation = location.state?.initialValues as ChartVersionValues | undefined;
-    
     // If we have initial values from upgrade, use them
-    if (initialValuesFromLocation) {
+    if (initialValuesFromState) {
       setValues({
-        ...initialValuesFromLocation,
+        ...initialValuesFromState,
         // Don't copy registryPassword for security
         registryPassword: undefined,
       });
@@ -240,7 +236,7 @@ export default function NewVersion() {
 
     setValues(initialValues);
     hasInitialized.current = true;
-  }, [template]); // Only depend on template, not initialValuesFromState
+  }, [template, initialValuesFromState]);
 
   if (!template) {
     return (

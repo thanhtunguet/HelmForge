@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -15,6 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Trash2, Network, Globe, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { IngressHost, IngressTLS } from '@/types/helm';
@@ -27,6 +36,7 @@ export default function EditIngress() {
   const templates = useHelmStore((state) => state.templates);
   const services = useHelmStore((state) => state.services);
   const tlsSecrets = useHelmStore((state) => state.tlsSecrets);
+  const addTLSSecret = useHelmStore((state) => state.addTLSSecret);
   const updateIngress = useHelmStore((state) => state.updateIngress);
 
   const ingress = ingresses.find((i) => i.id === ingressId && i.templateId === templateId);
@@ -45,6 +55,8 @@ export default function EditIngress() {
   const [hostForm, setHostForm] = useState({ hostname: '' });
   const [pathForms, setPathForms] = useState<Record<number, { serviceName: string; selectedRoute: string; customPath: string }>>({});
   const [tlsForm, setTlsForm] = useState({ secretName: '', selectedHosts: [] as string[] });
+  const [tlsSecretDialogOpen, setTlsSecretDialogOpen] = useState(false);
+  const [tlsSecretFormData, setTlsSecretFormData] = useState({ name: '', cert: '', key: '' });
 
   useEffect(() => {
     if (ingress && template) {
@@ -227,6 +239,34 @@ export default function EditIngress() {
     }
   };
 
+  const openNewTlsSecret = () => {
+    setTlsSecretFormData({ name: '', cert: '', key: '' });
+    setTlsSecretDialogOpen(true);
+  };
+
+  const handleTlsSecretSubmit = async () => {
+    if (!tlsSecretFormData.name.trim()) {
+      toast.error('Secret name is required');
+      return;
+    }
+
+    try {
+      await addTLSSecret({
+        id: crypto.randomUUID(),
+        templateId: template.id,
+        name: tlsSecretFormData.name,
+        type: 'tls',
+        cert: tlsSecretFormData.cert || undefined,
+        key: tlsSecretFormData.key || undefined,
+      });
+      toast.success('TLS secret added');
+      setTlsSecretDialogOpen(false);
+      setTlsForm((prev) => ({ ...prev, secretName: tlsSecretFormData.name }));
+    } catch (error) {
+      // Error is already handled in the store
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast.error('Ingress name is required');
@@ -328,7 +368,13 @@ export default function EditIngress() {
                   <Label className="text-base">TLS Configuration</Label>
                   <p className="text-xs text-muted-foreground">Configure HTTPS for hosts</p>
                 </div>
-                <Badge variant="secondary">{formData.tls.length} config(s)</Badge>
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={openNewTlsSecret}>
+                    <Plus className="h-3 w-3 mr-1" />
+                    New TLS Secret
+                  </Button>
+                  <Badge variant="secondary">{formData.tls.length} config(s)</Badge>
+                </div>
               </div>
 
               {templateTlsSecrets.length === 0 ? (
@@ -627,6 +673,63 @@ export default function EditIngress() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={tlsSecretDialogOpen} onOpenChange={setTlsSecretDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add TLS Secret</DialogTitle>
+            <DialogDescription>
+              Create a TLS secret for Ingress HTTPS termination.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="ingress-tls-name">Secret Name *</Label>
+              <Input
+                id="ingress-tls-name"
+                placeholder="wildcard-tls"
+                value={tlsSecretFormData.name}
+                onChange={(e) => setTlsSecretFormData({ ...tlsSecretFormData, name: e.target.value })}
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ingress-tls-cert">Certificate (tls.crt)</Label>
+              <Textarea
+                id="ingress-tls-cert"
+                placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
+                value={tlsSecretFormData.cert}
+                onChange={(e) => setTlsSecretFormData({ ...tlsSecretFormData, cert: e.target.value })}
+                className="font-mono text-xs min-h-[120px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste the PEM-encoded certificate or leave empty to set per version
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ingress-tls-key">Private Key (tls.key)</Label>
+              <Textarea
+                id="ingress-tls-key"
+                placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"
+                value={tlsSecretFormData.key}
+                onChange={(e) => setTlsSecretFormData({ ...tlsSecretFormData, key: e.target.value })}
+                className="font-mono text-xs min-h-[120px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste the PEM-encoded private key or leave empty to set per version
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTlsSecretDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleTlsSecretSubmit}>
+              Add TLS Secret
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }

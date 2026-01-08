@@ -198,6 +198,7 @@ Services represent your microservices. Each service can have:
 Configure external access to your services with:
 - Host names
 - TLS/SSL support
+- Create TLS secrets directly from the ingress TLS configuration
 - Routing rules
 - Nginx gateway integration
 
