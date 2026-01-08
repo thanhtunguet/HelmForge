@@ -92,7 +92,6 @@ export type Database = {
           mode: string
           name: string
           rules: Json
-          tls: Json
           template_id: string
           tls_enabled: boolean
           tls_secret_name: string | null
@@ -104,7 +103,6 @@ export type Database = {
           mode?: string
           name: string
           rules?: Json
-          tls?: Json
           template_id: string
           tls_enabled?: boolean
           tls_secret_name?: string | null
@@ -116,7 +114,6 @@ export type Database = {
           mode?: string
           name?: string
           rules?: Json
-          tls?: Json
           template_id?: string
           tls_enabled?: boolean
           tls_secret_name?: string | null
@@ -415,33 +412,21 @@ export type Database = {
       }
       tls_secrets: {
         Row: {
-          cert: string | null
           created_at: string
-          expires_at: string | null
           id: string
           name: string
-          not_before: string | null
-          private_key: string | null
           template_id: string
         }
         Insert: {
-          cert?: string | null
           created_at?: string
-          expires_at?: string | null
           id?: string
           name: string
-          not_before?: string | null
-          private_key?: string | null
           template_id: string
         }
         Update: {
-          cert?: string | null
           created_at?: string
-          expires_at?: string | null
           id?: string
           name?: string
-          not_before?: string | null
-          private_key?: string | null
           template_id?: string
         }
         Relationships: [
