@@ -94,13 +94,16 @@ const languageAliases: Record<string, string> = {
 };
 
 const markdownComponents: Components = {
-  code({ node, inline, className, children, ...props }) {
+  code({ className, children, ...props }) {
     const match = /language-([^\s]+)/.exec(className || '');
     const rawLanguage = match?.[1]?.toLowerCase();
     const language = rawLanguage ? languageAliases[rawLanguage] ?? rawLanguage : undefined;
     const codeContent = String(children).replace(/\n$/, '');
+    
+    // Check if this is inline code (no language class and short content)
+    const isInline = !className && !codeContent.includes('\n');
 
-    if (inline) {
+    if (isInline) {
       return (
         <code
           className={cn('rounded bg-muted px-1.5 py-0.5 text-sm font-mono', className)}

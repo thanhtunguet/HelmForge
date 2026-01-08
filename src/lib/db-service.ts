@@ -82,6 +82,7 @@ function appTemplateToDb(template: Template | Partial<Template>): Partial<DbTemp
 
 // Helper to convert database service to app service
 function dbServiceToApp(dbService: DbServiceRow): Service {
+  const extendedService = dbService as DbServiceRow & { use_custom_ports?: boolean; custom_ports?: unknown };
   return {
     id: dbService.id,
     templateId: dbService.template_id,
@@ -94,13 +95,13 @@ function dbServiceToApp(dbService: DbServiceRow): Service {
     configMapEnvSources: (dbService.config_map_env_sources as unknown as ConfigMapEnvSource[]) || [],
     secretEnvSources: (dbService.secret_env_sources as unknown as SecretEnvSource[]) || [],
     useStatefulSet: dbService.use_stateful_set,
-    useCustomPorts: dbService.use_custom_ports ?? false,
-    customPorts: (dbService.custom_ports as unknown as ServicePort[]) || [],
+    useCustomPorts: extendedService.use_custom_ports ?? false,
+    customPorts: (extendedService.custom_ports as unknown as ServicePort[]) || [],
   };
 }
 
 // Helper to convert app service to database format
-function appServiceToDb(service: Service | Partial<Service>): Omit<DbServiceInsert, 'id' | 'created_at'> {
+function appServiceToDb(service: Service | Partial<Service>): Record<string, unknown> {
   return {
     template_id: service.templateId!,
     name: service.name!,
@@ -113,7 +114,7 @@ function appServiceToDb(service: Service | Partial<Service>): Omit<DbServiceInse
     secret_env_sources: (service.secretEnvSources || []) as unknown as Database['public']['Tables']['services']['Row']['secret_env_sources'],
     use_stateful_set: service.useStatefulSet ?? false,
     use_custom_ports: service.useCustomPorts ?? false,
-    custom_ports: (service.customPorts || []) as unknown as Database['public']['Tables']['services']['Row']['custom_ports'],
+    custom_ports: service.customPorts || [],
   };
 }
 
@@ -305,6 +306,7 @@ export const templateDb = {
 
     const insertData: DbTemplateInsert = {
       id: template.id,
+      name: template.name,
       user_id: userData.user.id,
       ...appTemplateToDb(template),
     };
@@ -358,12 +360,13 @@ export const serviceDb = {
   },
 
   async create(service: Service): Promise<Service> {
+    const insertData = {
+      id: service.id,
+      ...appServiceToDb(service),
+    };
     const { data, error } = await supabase
       .from('services')
-      .insert({
-        id: service.id,
-        ...appServiceToDb(service),
-      })
+      .insert(insertData as Database['public']['Tables']['services']['Insert'])
       .select()
       .single();
 
@@ -372,9 +375,10 @@ export const serviceDb = {
   },
 
   async update(id: string, updates: Partial<Service>): Promise<Service> {
+    const updateData = appServiceToDb(updates as Service);
     const { data, error } = await supabase
       .from('services')
-      .update(appServiceToDb(updates as Service))
+      .update(updateData as Database['public']['Tables']['services']['Update'])
       .eq('id', id)
       .select()
       .single();
