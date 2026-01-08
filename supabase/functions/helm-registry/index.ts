@@ -718,7 +718,7 @@ async function generateChartPackage(template: TemplateWithRelations, version: Ch
   addFile(`${chartName}/values.yaml`, generateValuesYaml(template, version));
 
   // Rancher chart metadata
-  addFile(`${chartName}/questions.yml`, generateQuestionsYaml(template, version));
+  addFile(`${chartName}/questions.yaml`, generateQuestionsYaml(template, version));
   addFile(`${chartName}/app-readme.md`, generateAppReadme(template, version));
 
   // Helm chart README

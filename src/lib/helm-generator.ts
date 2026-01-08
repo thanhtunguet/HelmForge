@@ -651,7 +651,7 @@ export async function downloadChart(
   files.push({ name: `${chartName}/values.yaml`, content: generateValuesYaml(template, version) });
 
   // Rancher chart metadata
-  files.push({ name: `${chartName}/questions.yml`, content: generateQuestionsYaml(template, version) });
+  files.push({ name: `${chartName}/questions.yaml`, content: generateQuestionsYaml(template, version) });
   files.push({ name: `${chartName}/app-readme.md`, content: generateAppReadme(template, version) });
 
   // Helm chart README
@@ -717,7 +717,7 @@ export function generateChartFiles(
   files.push({ name: `${chartName}/values.yaml`, content: generateValuesYaml(template, version) });
 
   // Rancher chart metadata
-  files.push({ name: `${chartName}/questions.yml`, content: generateQuestionsYaml(template, version) });
+  files.push({ name: `${chartName}/questions.yaml`, content: generateQuestionsYaml(template, version) });
   files.push({ name: `${chartName}/app-readme.md`, content: generateAppReadme(template, version) });
 
   // Helm chart README
