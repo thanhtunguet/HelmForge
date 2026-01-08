@@ -265,7 +265,7 @@ export function SecretsTab({ template, readOnly = false }: SecretsTabProps) {
                 {template.tlsSecrets.map((secret) => (
                   <TableRow 
                     key={secret.id}
-                    className={!readOnly ? "cursor-pointer hover:bg-muted/50" : ""}
+                    className={!readOnly ? 'cursor-pointer hover:bg-muted/50' : ''}
                     onClick={() => !readOnly && openEditTls(secret)}
                   >
                     <TableCell>
@@ -367,7 +367,7 @@ export function SecretsTab({ template, readOnly = false }: SecretsTabProps) {
                 {template.opaqueSecrets.map((secret) => (
                   <TableRow 
                     key={secret.id}
-                    className={!readOnly ? "cursor-pointer hover:bg-muted/50" : ""}
+                    className={!readOnly ? 'cursor-pointer hover:bg-muted/50' : ''}
                     onClick={() => !readOnly && openEditOpaque(secret)}
                   >
                     <TableCell>

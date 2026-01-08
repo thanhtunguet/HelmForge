@@ -171,7 +171,7 @@ export function ConfigMapsTab({ template, readOnly = false }: ConfigMapsTabProps
               {template.configMaps.map((cm) => (
                 <TableRow 
                   key={cm.id}
-                  className={!readOnly ? "cursor-pointer hover:bg-muted/50" : ""}
+                  className={!readOnly ? 'cursor-pointer hover:bg-muted/50' : ''}
                   onClick={() => !readOnly && openEdit(cm)}
                 >
                   <TableCell className="font-mono font-medium">{cm.name}</TableCell>

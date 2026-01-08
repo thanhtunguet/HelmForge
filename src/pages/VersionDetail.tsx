@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowUpCircle,
   Download,
+  Edit,
   Tag,
   Variable,
   FileJson,
@@ -82,6 +83,10 @@ export default function VersionDetail() {
     });
   };
 
+  const handlePartialUpdate = () => {
+    navigate(`/templates/${template.id}/versions/${version.id}/partial-update`);
+  };
+
   return (
     <MainLayout>
       <div className="animate-fade-in w-full">
@@ -116,6 +121,10 @@ export default function VersionDetail() {
             </div>
 
             <div className="flex gap-2">
+              <Button variant="outline" onClick={handlePartialUpdate}>
+                <Edit className="mr-2 h-4 w-4" />
+                Partial Update
+              </Button>
               <Button variant="outline" onClick={handleUpgrade}>
                 <ArrowUpCircle className="mr-2 h-4 w-4" />
                 Upgrade
@@ -568,6 +577,10 @@ export default function VersionDetail() {
             Back to Versions
           </Button>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={handlePartialUpdate}>
+              <Edit className="mr-2 h-4 w-4" />
+              Partial Update
+            </Button>
             <Button variant="outline" onClick={handleUpgrade}>
               <ArrowUpCircle className="mr-2 h-4 w-4" />
               Upgrade Version

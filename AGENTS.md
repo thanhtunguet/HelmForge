@@ -8,5 +8,5 @@
 
 # Typescript rules
 
-- Avoid using "any". Declare correct types for particular usages.
+- Avoid using "any" or "unknown". Declare correct types for particular usages.
 - Use camelCase naming convention

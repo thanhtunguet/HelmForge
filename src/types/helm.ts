@@ -152,3 +152,26 @@ export interface TemplateWithRelations extends Template {
   ingresses: Ingress[];
   versions: ChartVersion[];
 }
+
+// Partial Update Types
+export interface PartialUpdateSelection {
+  services: Record<string, boolean>; // serviceId -> selected
+  configMaps: Record<string, Record<string, boolean>>; // configMapId -> { keyName -> selected }
+  secrets: Record<string, Record<string, boolean>>; // secretId -> { keyName -> selected }
+}
+
+export interface PartialUpdateValues {
+  imageTags: Record<string, string>; // serviceId -> imageTag
+  configMapValues: Record<string, Record<string, string>>; // configMapId -> { keyName -> value }
+  opaqueSecretValues: Record<string, Record<string, string>>; // secretId -> { keyName -> value }
+  tlsSecretValues: Record<string, { crt: string; key: string }>; // secretId -> { crt, key }
+}
+
+export interface PartialUpdateRequest {
+  sourceVersionId: string;
+  selection: PartialUpdateSelection;
+  values: PartialUpdateValues;
+  newVersionName: string;
+  appVersion?: string;
+  releaseNotes?: string;
+}

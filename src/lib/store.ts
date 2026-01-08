@@ -9,6 +9,8 @@ import {
   Ingress,
   ChartVersion,
   TemplateWithRelations,
+  PartialUpdateRequest,
+  ChartVersionValues,
 } from '@/types/helm';
 import {
   templateDb,
@@ -70,6 +72,9 @@ interface HelmStore {
   // Chart Version actions
   addChartVersion: (version: ChartVersion) => Promise<void>;
   deleteChartVersion: (id: string) => Promise<void>;
+  
+  // Partial Update actions
+  createPartialUpdate: (request: PartialUpdateRequest) => Promise<ChartVersion>;
 }
 
 export const useHelmStore = create<HelmStore>()(
@@ -463,6 +468,81 @@ export const useHelmStore = create<HelmStore>()(
         } catch (error) {
           console.error('Failed to delete chart version:', error);
           toast.error('Failed to delete chart version');
+          throw error;
+        }
+      },
+      
+      createPartialUpdate: async (request) => {
+        const state = get();
+        
+        // Find source version
+        const sourceVersion = state.chartVersions.find((v) => v.id === request.sourceVersionId);
+        if (!sourceVersion) {
+          throw new Error('Source version not found');
+        }
+        
+        // Create new values by merging source values with partial updates
+        const newValues: ChartVersionValues = {
+          ...sourceVersion.values,
+          imageTags: {
+            ...sourceVersion.values.imageTags,
+            ...request.values.imageTags,
+          },
+          configMapValues: {
+            ...sourceVersion.values.configMapValues,
+          },
+          opaqueSecretValues: {
+            ...sourceVersion.values.opaqueSecretValues,
+          },
+          tlsSecretValues: {
+            ...sourceVersion.values.tlsSecretValues,
+            ...request.values.tlsSecretValues,
+          },
+        };
+        
+        // Merge selected configMap values
+        Object.entries(request.values.configMapValues).forEach(([configMapId, keyValues]) => {
+          if (!newValues.configMapValues[configMapId]) {
+            newValues.configMapValues[configMapId] = {};
+          }
+          Object.entries(keyValues).forEach(([key, value]) => {
+            if (request.selection.configMaps[configMapId]?.[key]) {
+              newValues.configMapValues[configMapId][key] = value;
+            }
+          });
+        });
+        
+        // Merge selected opaque secret values
+        Object.entries(request.values.opaqueSecretValues).forEach(([secretId, keyValues]) => {
+          if (!newValues.opaqueSecretValues[secretId]) {
+            newValues.opaqueSecretValues[secretId] = {};
+          }
+          Object.entries(keyValues).forEach(([key, value]) => {
+            if (request.selection.secrets[secretId]?.[key]) {
+              newValues.opaqueSecretValues[secretId][key] = value;
+            }
+          });
+        });
+        
+        // Create new chart version
+        const newVersion: ChartVersion = {
+          id: crypto.randomUUID(),
+          templateId: sourceVersion.templateId,
+          versionName: request.newVersionName,
+          appVersion: request.appVersion,
+          releaseNotes: request.releaseNotes,
+          values: newValues,
+          createdAt: new Date().toISOString(),
+        };
+        
+        try {
+          const saved = await chartVersionDb.create(newVersion);
+          set((state) => ({ chartVersions: [...state.chartVersions, saved] }));
+          toast.success('Partial update version created successfully');
+          return saved;
+        } catch (error) {
+          console.error('Failed to create partial update version:', error);
+          toast.error('Failed to create partial update version');
           throw error;
         }
       },

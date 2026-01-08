@@ -84,14 +84,14 @@ interface MarkdownPreviewProps {
 export function MarkdownPreview({ content, className }: MarkdownPreviewProps) {
   if (!content) {
     return (
-      <p className={cn("text-muted-foreground text-sm", className)}>
+      <p className={cn('text-muted-foreground text-sm', className)}>
         No content available.
       </p>
     );
   }
 
   return (
-    <div className={cn("prose prose-sm dark:prose-invert max-w-none", className)}>
+    <div className={cn('prose prose-sm dark:prose-invert max-w-none', className)}>
       <ReactMarkdown remarkPlugins={[remarkGfm]}>
         {content}
       </ReactMarkdown>

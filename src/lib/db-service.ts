@@ -304,7 +304,7 @@ export const templateDb = {
       ...appTemplateToDb(template),
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data, error } = await supabase
       .from('templates')
       .insert(insertData as any)
@@ -608,7 +608,7 @@ export const chartVersionDb = {
       values: version.values as unknown as Database['public']['Tables']['chart_versions']['Row']['values'],
     };
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data, error } = await supabase
       .from('chart_versions')
       .insert(insertData as any)

@@ -13,6 +13,7 @@ import NewTemplate from './pages/NewTemplate';
 import TemplateDetail from './pages/TemplateDetail';
 import NewVersion from './pages/NewVersion';
 import VersionDetail from './pages/VersionDetail';
+import PartialUpdate from './pages/PartialUpdate';
 import ServiceAccounts from './pages/ServiceAccounts';
 import EditConfigMap from './pages/EditConfigMap';
 import EditSecret from './pages/EditSecret';
@@ -88,6 +89,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <VersionDetail />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/templates/:templateId/versions/:versionId/partial-update',
+    element: (
+      <ProtectedRoute>
+        <PartialUpdate />
       </ProtectedRoute>
     ),
   },

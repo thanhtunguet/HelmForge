@@ -156,7 +156,7 @@ export function IngressesTab({ template, readOnly = false }: IngressesTabProps) 
               {template.ingresses.map((ingress) => (
                 <TableRow 
                   key={ingress.id}
-                  className={!readOnly ? "cursor-pointer hover:bg-muted/50" : ""}
+                  className={!readOnly ? 'cursor-pointer hover:bg-muted/50' : ''}
                   onClick={() => !readOnly && openEdit(ingress)}
                 >
                   <TableCell className="font-mono font-medium">{ingress.name}</TableCell>
