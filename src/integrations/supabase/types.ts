@@ -476,6 +476,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_template_share_access: {
+        Args: { _permission?: string; _template_id: string; _user_id: string }
+        Returns: boolean
+      }
       update_service_account_last_used: {
         Args: { p_service_account_id: string }
         Returns: undefined
