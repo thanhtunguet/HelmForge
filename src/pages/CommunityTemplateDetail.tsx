@@ -118,21 +118,24 @@ export default function CommunityTemplateDetail() {
           updatedAt: templateData.updated_at,
         };
 
-        const services: Service[] = (servicesRes.data || []).map((s) => ({
-          id: s.id,
-          templateId: s.template_id,
-          name: s.name,
-          routes: (s.routes as unknown as Route[]) || [],
-          envVars: (s.env_vars as unknown as EnvVarSchema[]) || [],
-          healthCheckEnabled: s.health_check_enabled,
-          livenessPath: s.liveness_path || '/health',
-          readinessPath: s.readiness_path || '/ready',
-          configMapEnvSources: (s.config_map_env_sources as unknown as ConfigMapEnvSource[]) || [],
-          secretEnvSources: (s.secret_env_sources as unknown as SecretEnvSource[]) || [],
-          useStatefulSet: s.use_stateful_set,
-          useCustomPorts: s.use_custom_ports ?? false,
-          customPorts: (s.custom_ports as unknown as ServicePort[]) || [],
-        }));
+        const services: Service[] = (servicesRes.data || []).map((s) => {
+          const extendedService = s as typeof s & { use_custom_ports?: boolean; custom_ports?: unknown };
+          return {
+            id: s.id,
+            templateId: s.template_id,
+            name: s.name,
+            routes: (s.routes as unknown as Route[]) || [],
+            envVars: (s.env_vars as unknown as EnvVarSchema[]) || [],
+            healthCheckEnabled: s.health_check_enabled,
+            livenessPath: s.liveness_path || '/health',
+            readinessPath: s.readiness_path || '/ready',
+            configMapEnvSources: (s.config_map_env_sources as unknown as ConfigMapEnvSource[]) || [],
+            secretEnvSources: (s.secret_env_sources as unknown as SecretEnvSource[]) || [],
+            useStatefulSet: s.use_stateful_set,
+            useCustomPorts: extendedService.use_custom_ports ?? false,
+            customPorts: (extendedService.custom_ports as unknown as ServicePort[]) || [],
+          };
+        });
 
         const configMaps: ConfigMap[] = (configMapsRes.data || []).map((c) => ({
           id: c.id,
