@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MarkdownEditor } from '@/components/ui/markdown-editor';
 import { ChevronLeft, Save } from 'lucide-react';
 import { PartialUpdateSelection, PartialUpdateValues, PartialUpdateRequest } from '@/types/helm';
 import { EntityTreeSelector } from '@/components/template/EntityTreeSelector';
@@ -187,12 +187,28 @@ export default function PartialUpdate() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="releaseNotes">Release Notes</Label>
-              <Textarea
-                id="releaseNotes"
+              <p className="text-sm text-muted-foreground">
+                Describe the changes in this partial update. Supports Markdown.
+              </p>
+              <MarkdownEditor
                 value={releaseNotes}
-                onChange={(e) => setReleaseNotes(e.target.value)}
-                placeholder="Describe the changes in this partial update..."
-                rows={4}
+                onChange={(val) => setReleaseNotes(val)}
+                height="400px"
+                placeholder="## What's New
+
+- Feature 1
+- Feature 2
+
+## Bug Fixes
+
+- Fix 1
+- Fix 2
+
+## Changes
+
+- Change 1
+- Change 2
+"
               />
             </div>
             <div className="flex justify-end">
