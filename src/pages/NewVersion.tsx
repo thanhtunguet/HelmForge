@@ -73,6 +73,8 @@ export default function NewVersion() {
     enableNginxGateway: undefined,
     enableRedis: undefined,
   });
+  const isRegistryPasswordMissing = !values.registryPassword?.trim();
+  const isVersionNameMissing = !versionInfo.versionName.trim();
 
   // Track if we've initialized to prevent infinite loops
   const hasInitialized = useRef(false);
@@ -179,6 +181,16 @@ export default function NewVersion() {
   const progress = ((currentStep + 1) / STEPS.length) * 100;
 
   const nextStep = () => {
+    if (currentStep === 0) {
+      if (isVersionNameMissing) {
+        toast.error('Version name is required');
+        return;
+      }
+      if (isRegistryPasswordMissing) {
+        toast.error('Registry password is required');
+        return;
+      }
+    }
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     }
@@ -188,6 +200,21 @@ export default function NewVersion() {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const jumpToStep = (targetStep: number) => {
+    if (targetStep === currentStep) return;
+    if (currentStep === 0 && targetStep > currentStep) {
+      if (isVersionNameMissing) {
+        toast.error('Version name is required');
+        return;
+      }
+      if (isRegistryPasswordMissing) {
+        toast.error('Registry password is required');
+        return;
+      }
+    }
+    setCurrentStep(targetStep);
   };
 
   const handleCreate = async () => {
@@ -285,6 +312,11 @@ export default function NewVersion() {
                     setValues({ ...values, registryPassword: e.target.value })
                   }
                 />
+                {isRegistryPasswordMissing && (
+                  <p className="text-xs text-destructive">
+                    Registry password is required to continue.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Password for accessing the container registry ({template.registryUrl})
                 </p>
@@ -790,7 +822,7 @@ export default function NewVersion() {
 
   return (
     <MainLayout>
-      <div className="animate-fade-in w-full">
+      <div className="animate-fade-in w-full flex min-h-[calc(100vh-4rem)] flex-col">
         {/* Header */}
         <div className="mb-8">
           <Button
@@ -818,7 +850,7 @@ export default function NewVersion() {
               return (
                 <button
                   key={step.id}
-                  onClick={() => setCurrentStep(index)}
+                  onClick={() => jumpToStep(index)}
                   className={`flex flex-col items-center gap-1 transition-colors ${
                     isActive
                       ? 'text-primary'
@@ -845,30 +877,37 @@ export default function NewVersion() {
           </div>
         </div>
 
-        {/* Step Content */}
-        {renderStep()}
+        <div className="flex-1 min-h-0 pb-28">
+          {/* Step Content */}
+          {renderStep()}
+        </div>
 
         {/* Navigation */}
-        <div className="mt-6 flex justify-between">
-          <Button
-            variant="outline"
-            onClick={prevStep}
-            disabled={currentStep === 0}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Previous
-          </Button>
-          {currentStep === STEPS.length - 1 ? (
-            <Button onClick={handleCreate}>
-              <Download className="mr-2 h-4 w-4" />
-              Create & Download
+        <div className="fixed bottom-0 left-64 right-0 border-t border-border bg-background/95 backdrop-blur">
+          <div className="flex justify-between px-8 py-4">
+            <Button
+              variant="outline"
+              onClick={prevStep}
+              disabled={currentStep === 0}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Previous
             </Button>
-          ) : (
-            <Button onClick={nextStep}>
-              Next
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          )}
+            {currentStep === STEPS.length - 1 ? (
+              <Button onClick={handleCreate}>
+                <Download className="mr-2 h-4 w-4" />
+                Create & Download
+              </Button>
+            ) : (
+              <Button
+                onClick={nextStep}
+                disabled={currentStep === 0 && (isRegistryPasswordMissing || isVersionNameMissing)}
+              >
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </MainLayout>
