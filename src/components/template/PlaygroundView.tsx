@@ -71,11 +71,15 @@ export function PlaygroundView({ template, version }: PlaygroundViewProps) {
               Kubernetes namespace for deployment
             </p>
           </div>
-          <div className="flex items-end">
+          <div className="space-y-2">
+            <Label>&nbsp;</Label>
             <Button onClick={handleGenerate} className="w-full">
               <Play className="mr-2 h-4 w-4" />
               Generate Manifests
             </Button>
+            <p className="text-xs text-muted-foreground">
+              Generate Kubernetes manifests
+            </p>
           </div>
         </div>
       </Card>
