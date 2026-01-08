@@ -16,7 +16,7 @@
 - **ConfigMaps & Secrets** - Manage configuration data and sensitive information with full CRUD operations
 - **Ingress Configuration** - Set up routing rules with TLS support, nginx gateway integration, and custom paths
 - **Chart Versioning** - Create and manage multiple versions of your Helm charts
-- **Export & Download** - Generate complete Helm chart packages (`.tgz`) ready for deployment
+- **Export & Download** - Generate complete Helm chart packages (`.tgz`) ready for deployment, including Rancher metadata (`questions.yml`, `app-readme.md`)
 - **Private Helm Registry** - Built-in registry to serve your chart templates via Supabase Edge Functions
 
 ### Advanced Features
