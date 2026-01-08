@@ -129,6 +129,16 @@ export default function TemplateDetail() {
                 <Badge variant="outline" className="font-mono">
                   {template.registryUrl}/{template.registryProject}
                 </Badge>
+                {template.versions.length > 0 && (() => {
+                  const latestVersion = [...template.versions].sort((a, b) => 
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                  )[0];
+                  return (
+                    <Badge className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20">
+                      v{latestVersion.versionName}
+                    </Badge>
+                  );
+                })()}
                 {template.enableNginxGateway && (
                   <Badge className="bg-primary/10 text-primary border-primary/20">
                     Nginx Gateway
