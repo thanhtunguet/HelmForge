@@ -18,6 +18,7 @@
 - **Chart Versioning** - Create and manage multiple versions of your Helm charts
 - **Export & Download** - Generate complete Helm chart packages (`.tgz`) ready for deployment, including Rancher metadata (`questions.yml`, `app-readme.md`)
 - **Private Helm Registry** - Built-in registry to serve your chart templates via Supabase Edge Functions
+- **Markdown Editor** - Write rich documentation with syntax-highlighted code blocks
 
 ### Advanced Features
 
