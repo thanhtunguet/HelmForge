@@ -19,6 +19,7 @@
 - **Export & Download** - Generate complete Helm chart packages (`.tgz`) ready for deployment, including Rancher metadata (`questions.yml`, `app-readme.md`)
 - **Private Helm Registry** - Built-in registry to serve your chart templates via Supabase Edge Functions
 - **Markdown Editor** - Write rich documentation with syntax-highlighted code blocks
+- **Chart Structure Helper** - Insert an auto-generated chart resource tree into README docs
 
 ### Advanced Features
 
